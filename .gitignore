@@ -1,0 +1,5 @@
+*.o
+klejne.js
+*.wasm
+.*swp
+tmp/
