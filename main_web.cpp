@@ -5,6 +5,7 @@
 #define GL_GLEXT_PROTOTYPES
 #define EGL_EGLEXT_PROTOTYPES
 #include <GLFW/glfw3.h>
+#include <GLFW/emscripten_glfw3.h>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -55,7 +56,9 @@ int main(int argc, char** argv)
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+	emscripten::glfw3::SetNextWindowCanvasSelector("#canvas");
 	window = glfwCreateWindow(640, 480, "Klejne", NULL, NULL);
+	emscripten::glfw3::MakeCanvasResizable(window, "window");
 	if (!window) {
 		glfwTerminate();
 		exit(EXIT_FAILURE);

@@ -577,10 +577,6 @@ EM_JS(void, ImGui_ImplGlfw_EmscriptenOpenURL, (const char* url), { url = url ? U
 #endif
 #endif
 
-#ifdef __EMSCRIPTEN__
-EM_JS(void, navigator_clipboard_write, (const char* msg), { navigator.clipboard.writeText(UTF8ToString(msg)); });
-#endif
-
 static bool ImGui_ImplGlfw_Init(GLFWwindow* window, bool install_callbacks, GlfwClientApi client_api)
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -599,14 +595,8 @@ static bool ImGui_ImplGlfw_Init(GLFWwindow* window, bool install_callbacks, Glfw
     bd->Time = 0.0;
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
-    #ifdef __EMSCRIPTEN__
-    platform_io.Platform_SetClipboardTextFn = [](ImGuiContext*, const char* text) { navigator_clipboard_write(text); };
-    #else
     platform_io.Platform_SetClipboardTextFn = [](ImGuiContext*, const char* text) { glfwSetClipboardString(NULL, text); };
     platform_io.Platform_GetClipboardTextFn = [](ImGuiContext*) { return glfwGetClipboardString(NULL); };
-
-    #endif
-
 #ifdef __EMSCRIPTEN__
     platform_io.Platform_OpenInShellFn = [](ImGuiContext*, const char* url) { ImGui_ImplGlfw_EmscriptenOpenURL(url); return true; };
 #endif
