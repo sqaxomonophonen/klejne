@@ -29,6 +29,11 @@ EM_JS(int, canvas_get_height, (void), {
 	return v;
 })
 
+static const char* current_canvas_cursor = NULL;
+EM_JS(void, set_canvas_cursor, (const char* cursor), {
+	document.getElementById("canvas").setAttribute("style", "cursor:" + UTF8ToString(cursor) + ";");
+})
+
 static void main_loop(void)
 {
 	const int canvas_width = canvas_get_width();
@@ -42,6 +47,24 @@ static void main_loop(void)
 
 	if (show_demo_window) {
 		ImGui::ShowDemoWindow(&show_demo_window);
+	}
+
+	{
+		const char* cursor = "default";
+		switch (ImGui::GetMouseCursor()) {
+		case ImGuiMouseCursor_Arrow:       cursor = "default"      ; break ;
+		case ImGuiMouseCursor_TextInput:   cursor = "text"         ; break ;
+		case ImGuiMouseCursor_ResizeAll:   cursor = "alt-scroll"   ; break ;
+		case ImGuiMouseCursor_ResizeNS:    cursor = "ns-resize"    ; break ;
+		case ImGuiMouseCursor_ResizeEW:    cursor = "ew-resize"    ; break ;
+		case ImGuiMouseCursor_ResizeNESW:  cursor = "nesw-resize"  ; break ;
+		case ImGuiMouseCursor_ResizeNWSE:  cursor = "nwse-resize"  ; break ;
+		case ImGuiMouseCursor_Hand:        cursor = "grab"         ; break ;
+		}
+		if (cursor != current_canvas_cursor) {
+			set_canvas_cursor(cursor);
+			current_canvas_cursor = cursor;
+		}
 	}
 
 	ImGui::Render();
