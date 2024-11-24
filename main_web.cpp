@@ -82,10 +82,7 @@ bool GenerateNoise(int numInputs, const AudioSampleFrame *inputs, int numOutputs
 {
 	const float mag = 0.002f; // subtle
 	for (int i = 0; i < numOutputs; ++i) {
-		//for (int j = 0; j < outputs[i].samplesPerChannel*outputs[i].numberOfChannels; ++j) {
-		const int samplesPerChannel = 128;
-		//for (int j = 0; j < outputs[i].samplesPerChannel*outputs[i].numberOfChannels; ++j) {
-		for (int j = 0; j < samplesPerChannel*outputs[i].numberOfChannels; ++j) {
+		for (int j = 0; j < outputs[i].samplesPerChannel*outputs[i].numberOfChannels; ++j) {
 			outputs[i].data[j] = emscripten_random() * mag - 0.5f*mag;
 		}
 	}
