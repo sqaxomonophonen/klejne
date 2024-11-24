@@ -357,7 +357,11 @@ static const char* get_clipboard_text(ImGuiContext* ctx)
 }
 
 EM_JS(void, set_clipboard_text, (ImGuiContext* ctx, const char* s), {
-	Module["pasted_text"] = UTF8ToString(s);
+	const ss = UTF8ToString(s);
+	Module["pasted_text"] = ss;
+	navigator.clipboard.writeText(ss).then(() => {
+		//console.log("updated clipboard to: " + ss);
+	});
 })
 
 int main(int argc, char** argv)

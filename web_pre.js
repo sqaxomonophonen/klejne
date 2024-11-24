@@ -17,15 +17,5 @@ Module["preInit"] = [
 			const data = event.clipboardData.getData("text/plain");
 			Module["pasted_text"] = data;
 		});
-
-		const cc = (ev) => {
-			ev.preventDefault();
-			//setTimeout(() => {
-				ev.clipboardData.setData("text/plain", Module["pasted_text"]);
-			//}, 0);
-		};
-
-		document.addEventListener('copy', () => { cc(event); });
-		document.addEventListener('cut', () => { cc(event); });
 	}
 ];
