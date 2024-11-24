@@ -5,6 +5,7 @@
 
 #include <emscripten.h>
 #include <emscripten/webaudio.h>
+#include <emscripten/wasm_worker.h>
 #include <emscripten/em_math.h>
 
 #include <atomic>
@@ -19,11 +20,12 @@
 
 #include "klejne.h"
 
-static std::atomic_int32_t ga_n_process_calls = 0;
+static std::atomic_int32_t ga_num_process_calls = 0;
 static std::atomic_int32_t ga_testtone_lvl1e3 = 0;
 
 static bool g_audio_resume_on_click_attempted = false;
 static int g_sample_rate;
+static int g_num_cores;
 
 EM_JS(int, canvas_get_width, (void), {
 	const e = document.getElementById("canvas");
@@ -44,7 +46,7 @@ EM_JS(void, set_canvas_cursor, (const char* cursor), {
 
 void window_audio(bool* open)
 {
-	const int32_t n_process_calls = ga_n_process_calls.load(std::memory_order_acquire);
+	const int32_t n_process_calls = ga_num_process_calls.load(std::memory_order_acquire);
 	const bool is_audio_running = n_process_calls > 0;
 	float testtone_lvl = (float)ga_testtone_lvl1e3.load(std::memory_order_acquire) * 1e-3;
 	const float orig_testtone_lvl = testtone_lvl;
@@ -117,10 +119,11 @@ static int32_t g_current_testtone_lvl1e3;
 static float g_testtone_phase;
 bool audio_worklet_process(int n_inputs, const AudioSampleFrame* inputs, int n_outputs, AudioSampleFrame* outputs, int n_params, const AudioParamFrame* params, void* usr)
 {
+	//printf("audio master/worklet id: %u\n", emscripten_wasm_worker_self_id());
 	const int32_t target_testtone_lvl1e3 = ga_testtone_lvl1e3.load(std::memory_order_acquire);
 	const float testtone_hz = 440.0f;
 	const float testtone_inc = (2.0f*M_PI*testtone_hz) / (float)g_sample_rate;
-	ga_n_process_calls++;
+	ga_num_process_calls++;
 
 	for (int i0 = 0; i0 < n_outputs; i0++) {
 		const AudioSampleFrame* output = &outputs[i0];
@@ -428,8 +431,24 @@ EM_JS(double, get_context_sample_rate, (int handle), {
 	return EmAudio[handle].sampleRate;
 })
 
+void worker_worker(void)
+{
+	//printf("worker worker id: %u\n", emscripten_wasm_worker_self_id());
+}
+
 int main(int argc, char** argv)
 {
+	g_num_cores = emscripten_navigator_hardware_concurrency();
+
+	int num_workers = g_num_cores;
+	if (num_workers < 1) num_workers = 1;
+	for (int i = 0; i < num_workers; i++) {
+		emscripten_wasm_worker_post_function_v(
+			emscripten_malloc_wasm_worker(/*stacksize=*/1<<10),
+			worker_worker
+		);
+	}
+
 	#if 0
 	const EmscriptenWebAudioCreateAttributes attr = {
 		.latencyHint = "balanced", // "balanced", "interactive" or "playback"
@@ -439,6 +458,9 @@ int main(int argc, char** argv)
 	#else
 	EMSCRIPTEN_WEBAUDIO_T context = emscripten_create_audio_context(nullptr);
 	#endif
+
+
+	//printf("main worker id: %u\n", emscripten_wasm_worker_self_id());
 
 	g_sample_rate = (int)get_context_sample_rate(context);
 

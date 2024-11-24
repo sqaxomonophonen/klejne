@@ -1,4 +1,11 @@
 Module["pasted_text"] = "";
+Module["locateFile"] = (path, scriptDirectory) => {
+	// application files (html/js/wasm) are patched in order to move/rename
+	// the paths as desired (to serve them from /_static/ and to version
+	// them). however, unless "locateFile" is overridden like this, it
+	// attempts to do some path manipulation that corrupts request URLs
+	return path;
+}
 Module["preInit"] = [
 	() => {
 		// don't preinit in workers (right?):
