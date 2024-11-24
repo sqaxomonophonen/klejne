@@ -34,6 +34,7 @@ EM_JS(void, set_canvas_cursor, (const char* cursor), {
 	document.getElementById("canvas").setAttribute("style", "cursor:" + UTF8ToString(cursor) + ";");
 })
 
+static double last_time;
 static void main_loop(void)
 {
 	const int canvas_width = canvas_get_width();
@@ -41,6 +42,10 @@ static void main_loop(void)
 
 	ImGuiIO& io = ImGui::GetIO();
 	io.DisplaySize = ImVec2((float)canvas_width, (float)canvas_height);
+
+	const double now = emscripten_get_now() * 1e-3;
+	if (last_time > 0) io.DeltaTime = now - last_time;
+	last_time = now;
 
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
