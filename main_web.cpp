@@ -1,10 +1,13 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <emscripten.h>
 #include <emscripten/webaudio.h>
 #include <emscripten/em_math.h>
+
+#include <atomic>
 
 #define GL_GLEXT_PROTOTYPES
 #define EGL_EGLEXT_PROTOTYPES
@@ -14,8 +17,13 @@
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
 
-static bool show_demo_window = true;
+#include "klejne.h"
 
+static std::atomic_int32_t ga_n_process_calls = 0;
+static std::atomic_int32_t ga_testtone_lvl1e3 = 0;
+
+static bool g_audio_resume_on_click_attempted = false;
+static int g_sample_rate;
 
 EM_JS(int, canvas_get_width, (void), {
 	const e = document.getElementById("canvas");
@@ -34,6 +42,31 @@ EM_JS(void, set_canvas_cursor, (const char* cursor), {
 	document.getElementById("canvas").setAttribute("style", "cursor:" + UTF8ToString(cursor) + ";");
 })
 
+void window_audio(bool* open)
+{
+	const int32_t n_process_calls = ga_n_process_calls.load(std::memory_order_acquire);
+	const bool is_audio_running = n_process_calls > 0;
+	float testtone_lvl = (float)ga_testtone_lvl1e3.load(std::memory_order_acquire) * 1e-3;
+	const float orig_testtone_lvl = testtone_lvl;
+
+	ImGui::Begin("Web Audio", open);
+	ImGui::Text("Audio status: %s", is_audio_running ? "running" : g_audio_resume_on_click_attempted ? "did not start (error?)" : "not started (click anywhere in window)");
+	if (n_process_calls > 0) {
+		ImGui::SetItemTooltip("Number of process calls: %d", n_process_calls);
+	}
+
+	if (is_audio_running) {
+		ImGui::Text("Sample rate: %d Hz", g_sample_rate);
+		ImGui::SliderFloat("Test tone (440 Hz)", &testtone_lvl, 0.0f, 1.0f);
+	}
+
+	ImGui::End();
+
+	if (testtone_lvl != orig_testtone_lvl) {
+		ga_testtone_lvl1e3.store((int32_t)(testtone_lvl*1e3f), std::memory_order_release);
+	}
+}
+
 static double last_time;
 static void main_loop(void)
 {
@@ -50,9 +83,7 @@ static void main_loop(void)
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
 
-	if (show_demo_window) {
-		ImGui::ShowDemoWindow(&show_demo_window);
-	}
+	window_root();
 
 	{
 		const char* cursor = "default";
@@ -82,56 +113,80 @@ static void main_loop(void)
 
 uint8_t audio_thread_stack[1<<12];
 
-
-bool GenerateNoise(int numInputs, const AudioSampleFrame *inputs, int numOutputs, AudioSampleFrame *outputs, int numParams, const AudioParamFrame *params, void *userData)
+static int32_t g_current_testtone_lvl1e3;
+static float g_testtone_phase;
+bool audio_worklet_process(int n_inputs, const AudioSampleFrame* inputs, int n_outputs, AudioSampleFrame* outputs, int n_params, const AudioParamFrame* params, void* usr)
 {
-	const float mag = 0.002f; // subtle
-	for (int i = 0; i < numOutputs; ++i) {
-		for (int j = 0; j < outputs[i].samplesPerChannel*outputs[i].numberOfChannels; ++j) {
-			outputs[i].data[j] = emscripten_random() * mag - 0.5f*mag;
+	const int32_t target_testtone_lvl1e3 = ga_testtone_lvl1e3.load(std::memory_order_acquire);
+	const float testtone_hz = 440.0f;
+	const float testtone_inc = (2.0f*M_PI*testtone_hz) / (float)g_sample_rate;
+	ga_n_process_calls++;
+
+	for (int i0 = 0; i0 < n_outputs; i0++) {
+		const AudioSampleFrame* output = &outputs[i0];
+		const int n_samples = output->samplesPerChannel;
+		const int n_channels = output->numberOfChannels;
+		//printf("nch:%d nsmp:%d\n", n_channels, n_samples);
+
+		float* wp = output->data;
+		for (int i1 = 0; i1 < n_samples; i1++) {
+			float testtone_out = 0.0f;
+			g_current_testtone_lvl1e3 += target_testtone_lvl1e3>g_current_testtone_lvl1e3 ? 1 : target_testtone_lvl1e3<g_current_testtone_lvl1e3 ? -1 : 0;
+			if (g_current_testtone_lvl1e3 > 0) {
+				const float testtone_lvl = (float)g_current_testtone_lvl1e3 * 1e-3f;
+				testtone_out = sinf(g_testtone_phase) * testtone_lvl;
+				g_testtone_phase += testtone_inc;
+				while (g_testtone_phase > (2.0f*M_PI)) g_testtone_phase -= (2.0f*M_PI);
+			}
+			*(wp++) = + testtone_out;
 		}
+		for (int i1 = 1; i1 < n_channels; i1++) {
+			memcpy(output->data + (i1 * n_samples), output->data, sizeof(output->data[0]) * n_samples);
+		}
+		// TODO add actual signal here
 	}
+
 	return true; // Keep the graph output going
 }
 
-bool OnCanvasClick(int eventType, const EmscriptenMouseEvent *mouseEvent, void *userData)
+bool canvas_click_handler_that_resumes_audio(int type, const EmscriptenMouseEvent* ev, void* usr)
 {
-	EMSCRIPTEN_WEBAUDIO_T audioContext = (EMSCRIPTEN_WEBAUDIO_T)userData;
-	if (emscripten_audio_context_state(audioContext) != AUDIO_CONTEXT_STATE_RUNNING) {
-		emscripten_resume_audio_context_sync(audioContext);
+	g_audio_resume_on_click_attempted = true;
+	EMSCRIPTEN_WEBAUDIO_T ctx = (EMSCRIPTEN_WEBAUDIO_T)usr;
+	if (emscripten_audio_context_state(ctx) != AUDIO_CONTEXT_STATE_RUNNING) {
+		emscripten_resume_audio_context_sync(ctx);
 	}
 	return false;
 }
 
-void AudioWorkletProcessorCreated(EMSCRIPTEN_WEBAUDIO_T audioContext, bool success, void *userData)
+static const char* audio_worklet_name = "eine-klejne-audio-worklet";
+
+void audio_worklet_created(EMSCRIPTEN_WEBAUDIO_T ctx, bool success, void* usr)
 {
 	if (!success) return; // Check browser console in a debug build for detailed errors
 
-	int outputChannelCounts[1] = { 1 };
+	int output_channel_counts[1] = { 2 };
 	EmscriptenAudioWorkletNodeCreateOptions options = {
 		.numberOfInputs = 0,
 		.numberOfOutputs = 1,
-		.outputChannelCounts = outputChannelCounts
+		.outputChannelCounts = output_channel_counts
 	};
 
-	// Create node
-	EMSCRIPTEN_AUDIO_WORKLET_NODE_T wasmAudioWorklet = emscripten_create_wasm_audio_worklet_node(audioContext,
-			"noise-generator", &options, &GenerateNoise, 0);
+	EMSCRIPTEN_AUDIO_WORKLET_NODE_T aw = emscripten_create_wasm_audio_worklet_node(ctx, audio_worklet_name, &options, &audio_worklet_process, 0);
+	emscripten_audio_node_connect(aw, ctx, 0, 0);
 
-	// Connect it to audio context destination
-	emscripten_audio_node_connect(wasmAudioWorklet, audioContext, 0, 0);
-
-	// Resume context on mouse click
-	emscripten_set_click_callback("canvas", (void*)audioContext, 0, OnCanvasClick);
+	// browsers prevent audio from starting ("resuming") unless initiated
+	// by a user event
+	emscripten_set_click_callback("canvas", (void*)ctx, 0, canvas_click_handler_that_resumes_audio);
 }
 
-void AudioThreadInitialized(EMSCRIPTEN_WEBAUDIO_T audioContext, bool success, void *userData)
+void audio_worklet_init(EMSCRIPTEN_WEBAUDIO_T ctx, bool success, void* usr)
 {
 	if (!success) return; // Check browser console in a debug build for detailed errors
 	WebAudioWorkletProcessorCreateOptions opts = {
-		.name = "noise-generator",
+		.name = audio_worklet_name,
 	};
-	emscripten_create_wasm_audio_worklet_processor_async(audioContext, &opts, &AudioWorkletProcessorCreated, 0);
+	emscripten_create_wasm_audio_worklet_processor_async(ctx, &opts, &audio_worklet_created, 0);
 }
 
 static int prev_buttons, prev_mx, prev_my;
@@ -369,10 +424,25 @@ EM_JS(void, set_clipboard_text, (ImGuiContext* ctx, const char* s), {
 	});
 })
 
+EM_JS(double, get_context_sample_rate, (int handle), {
+	return EmAudio[handle].sampleRate;
+})
+
 int main(int argc, char** argv)
 {
-	EMSCRIPTEN_WEBAUDIO_T context = emscripten_create_audio_context(0);
-	emscripten_start_wasm_audio_worklet_thread_async(context, audio_thread_stack, sizeof(audio_thread_stack), &AudioThreadInitialized, 0);
+	#if 0
+	const EmscriptenWebAudioCreateAttributes attr = {
+		.latencyHint = "balanced", // "balanced", "interactive" or "playback"
+		.sampleRate = 48000,
+	};
+	EMSCRIPTEN_WEBAUDIO_T context = emscripten_create_audio_context(&attr);
+	#else
+	EMSCRIPTEN_WEBAUDIO_T context = emscripten_create_audio_context(nullptr);
+	#endif
+
+	g_sample_rate = (int)get_context_sample_rate(context);
+
+	emscripten_start_wasm_audio_worklet_thread_async(context, audio_thread_stack, sizeof(audio_thread_stack), &audio_worklet_init, 0);
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();

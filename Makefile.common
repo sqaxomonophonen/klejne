@@ -3,9 +3,10 @@ CPPFLAGS+=-Wall
 
 all: $(ARTIFACT)
 
-OBJS+=main_web.o
-OBJS+=imgui.o imgui_demo.o imgui_draw.o imgui_tables.o imgui_widgets.o
-OBJS+=imgui_impl_opengl3.o
+OBJS+=klejne.o # application
+OBJS+=main_web.o # main/environment
+OBJS+=imgui.o imgui_demo.o imgui_draw.o imgui_tables.o imgui_widgets.o # pure imgui deps
+OBJS+=imgui_impl_opengl3.o # impl imgui deps
 
 $(ARTIFACT): $(OBJS)
 	$(CC) -o $(ARTIFACT) $(OBJS) $(LDFLAGS)
