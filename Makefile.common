@@ -1,7 +1,10 @@
+CPPFLAGS+=-O0 -g
+CPPFLAGS+=-Wall
+
 all: $(ARTIFACT)
 
 OBJS+=main_web.o
-OBJS+=imgui.o imgui_demo.o imgui_draw.o imgui_tables.o imgui_widgets.o 
+OBJS+=imgui.o imgui_demo.o imgui_draw.o imgui_tables.o imgui_widgets.o
 OBJS+=imgui_impl_glfw.o imgui_impl_opengl3.o
 
 $(ARTIFACT): $(OBJS)

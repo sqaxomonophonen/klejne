@@ -1,5 +1,7 @@
 *.o
 klejne.js
-*.wasm
+klejne.aw.js
+klejne.ww.js
+klejne.wasm
 .*swp
 tmp/
