@@ -3,7 +3,7 @@ set -e
 cd $(dirname $0)/..
 
 # NOTE add new build sources here:
-files=$( ls *.cpp *.h Makefile.* web_pre.js )
+files=$( ls *.cpp *.c *.h Makefile.* web_pre.js )
 
 src_root=$(pwd)
 

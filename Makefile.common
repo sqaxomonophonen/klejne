@@ -1,11 +1,14 @@
 CPPFLAGS+=-O0 -g
 CPPFLAGS+=-Wall
 
+CFLAGS+=-D'CONFIG_VERSION="2024-02-14"' -DCONFIG_BIGNUM=1 # quickjs
+
 all: $(ARTIFACT)
 
 OBJS+=klejne.o # application
 OBJS+=main_web.o # main/environment
 OBJS+=imgui.o imgui_demo.o imgui_draw.o imgui_tables.o imgui_widgets.o # pure imgui deps
+OBJS+=cutils.o libbf.o libregexp.o libunicode.o quickjs.o # quickjs deps
 OBJS+=imgui_impl_opengl3.o # impl imgui deps
 
 $(ARTIFACT): $(OBJS)
