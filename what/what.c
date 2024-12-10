@@ -107,6 +107,7 @@ static void* heap_alloc(size_t n)
 	return base;
 }
 
+#define STBIRDEF PLEASE_EXPORT
 #define STBIR_ASSERT(p) assert(p)
 #define STBIR_MALLOC(size,user_data)    heap_alloc(size)
 #define STBIR_FREE(ptr,user_data)
