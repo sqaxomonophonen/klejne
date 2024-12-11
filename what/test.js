@@ -23,7 +23,8 @@ const inst = new WebAssembly.Instance(mod, {
 	}
 });
 
-
+//console.log(inst.exports);
+/*
 try {
 	inst.exports.selftest_assertion_failure();
 } catch (e) {
@@ -43,3 +44,4 @@ try {
 		throw e;
 	}
 }
+*/

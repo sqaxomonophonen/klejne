@@ -19,6 +19,7 @@ fi
 echo "using clang=$CLANG"
 $CLANG \
 	-O2 \
+	-Wall \
 	-std=c11 \
 	--target=wasm32 \
 	-mbulk-memory \
