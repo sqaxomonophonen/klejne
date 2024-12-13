@@ -134,23 +134,24 @@ PLEASE_EXPORT void selftest_assertion_failure(void)
 static float* s2c_kernel;
 static float* s2c_f32_scratch_space;
 static int s2c_kernel_radius;
+static int s2c_max_width;
+static int s2c_max_height;
 
-// returns a `float*` array with the length `2*kernel_radius-1`; you must fill
-// this out with the kernel which center lies at index `kernel_radius-1`.
-PLEASE_EXPORT float* s2c_setup(int kernel_radius, int max_input_width, int max_input_height)
+// returns a `float*` array with the length `2*kernel_radius+1`; you must fill
+// this out with the kernel which center lies at index `kernel_radius`.
+PLEASE_EXPORT float* s2c_setup(int kernel_radius, int max_width, int max_height)
 {
-	assert(kernel_radius >= 2);
+	assert(kernel_radius >= 1);
 	s2c_kernel_radius = kernel_radius;
-	const size_t kernel_size = kernel_radius + kernel_radius - 1;
-
+	const size_t kernel_size = kernel_radius + kernel_radius + 1;
 	s2c_kernel = heap_alloc_f32(kernel_size);
-
-	// we need to apply the 1d convolution kernel in two steps; one step
-	// for each axis.
-	const size_t max_scratch_pixels = max_input_width * (max_input_height + kernel_size - 1);
-
+	s2c_max_width = max_width;
+	s2c_max_height = max_height;
+	const size_t max_scratch_pixels = max_width * max_height;
+	//const size_t max_scratch_pixels = max_width * (max_height - 2*kernel_radius);
+	// XXX ^^^ use this instead? should be safe due to the "empty border"
+	// assumption
 	s2c_f32_scratch_space = heap_alloc_f32(max_scratch_pixels);
-
 	return s2c_kernel;
 }
 
@@ -167,100 +168,53 @@ static inline uint8_t f32_to_u8(float x)
 	return (uint8_t)i;
 }
 
-// performs separable 2d convolution; you should already have called
-// s2c_setup(), and filled out the kernel. every pixel in the width×height box
-// is written, but we only read the pixels in the content dx/dy/width/height
-// box (relative to the image corner).
-PLEASE_EXPORT void s2c_execute(uint8_t* image, int width, int height, int stride, int content_dx, int content_dy, int content_width, int content_height)
+// perform in-place separable 2d convolution. NOTE: the image input is assumed
+// to be blank within kernel radius of the border; presently a safe assumption
+// because it's used for gaussian blurs and we have no use for cropped blurs.
+PLEASE_EXPORT void s2c_execute(uint8_t* image, int width, int height, int stride)
 {
+	assert((width <= s2c_max_width) && (height <= s2c_max_height));
 	float* const ssp0 = s2c_f32_scratch_space;
 	const int R = s2c_kernel_radius;
-	const int R1 = R-1;
-	//const int K = R+R-1;
-	float* k;
-	uint8_t* p;
-	int rclip;
 
-	const int scratch_stride = content_height;
-
-	// 1st pass
-	// convolution is done in the X-direction. the result is written to
-	// scratch with x/y flipped in the Y-direction, so that the Y-direction
-	// convolution in the 2nd pass can read in the X-direction.
-	for (int yc = 0; yc < content_height; yc++) {
-		const int y = yc+content_dy;
-		const int yo = y*stride;
-		float* wp = ssp0+yc;
-
-		// XXX check this for off-by-one (or 2) errors
-		const int stop0 = R1;
-		const int stop1 = width - R1;
-
-		int x0 = 0;
-		rclip = 0;
-		for (; x0 < stop0; x0++) {
+	// first pass; X-axis convolution; result is written to scratch with
+	// x/y axes swapped (meaning the 2nd pass Y-convolution can read from
+	// scratch in X-direction)
+	const int y0 = R;
+	const int y1 = height-R;
+	const int scratch_stride = y1-y0;
+	for (int y = y0; y < y1; y++) {
+		const int yoff = stride*y;
+		float* sp = ssp0 + y;
+		for (int x = 0; x < width; x++) {
+			const int s0 = x<R          ? (R-x) : 0;
+			const int s1 = x>=(width-R) ? (x-width-R) : 0;
+			const uint8_t* p = image + yoff + (x<=R ? 0 : x-R);
+			const float* k = s2c_kernel + s0;
 			float sum = 0.0f;
-			p = image + yo;
-			k = s2c_kernel + (R1-rclip);
-			for (int dx=-rclip; dx<=R1; dx++) {
+			for (int dx=-R+s0; dx<=(R-s1); dx++) {
 				sum += u8_to_f32(*(p++)) * (*(k++));
 			}
-			rclip++;
-			(*wp) = sum;
-			wp += scratch_stride;
-		}
-		assert(x0 == stop0);
-		for (; x0 < stop1; x0++) {
-			float sum = 0.0f;
-			p = image + yo + x0 - R1;
-			k = s2c_kernel;
-			for (int dx=-R1; dx<=R1; dx++) {
-				sum += u8_to_f32(*(p++)) * (*(k++));
-			}
-			(*wp) = sum;
-			wp += scratch_stride;
-		}
-		assert(x0 == stop1);
-		rclip = R1-1;
-		for (; x0 < width; x0++) {
-			float sum = 0.0f;
-			p = image + yo + x0 - R1;
-			k = s2c_kernel;
-			for (int dx=-R1; dx<=rclip; dx++) {
-				sum += u8_to_f32(*(p++)) * (*(k++));
-			}
-			rclip--;
-			(*wp) = sum;
-			wp += scratch_stride;
+			(*sp) = sum;
+			sp += scratch_stride;
 		}
 	}
 
-	// 2nd pass
+	// second pass; Y-axis convolution
 	for (int x = 0; x < width; x++) {
-		float* rp = ssp0 + x*scratch_stride;
-
-		// XXX check this for off-by-one (or 2) errors
-		const int stop0 = R1;
-		const int stop1 = width - R1;
-
-		int y0 = 0;
-		p = image + x;
-		for (; y0 < stop0; y0++) {
+		uint8_t* p = image + x;
+		const int xoff = x*scratch_stride;
+		for (int y = 0; y < height; y++) {
+			const int s0 = y<R           ? (R-y) : 0;
+			const int s1 = y>=(height-R) ? (y-height-R) : 0;
+			const float* sp = ssp0 + xoff + y + (y<=R ? 0 : y-R);
+			const float* k = s2c_kernel + s0;
 			float sum = 0.0f;
-			(*p) = f32_to_u8(sum);
-			p += stride;
-		}
-		for (; y0 < stop1; y0++) {
-			float sum = 0.0f;
-			(*p) = f32_to_u8(sum);
-			p += stride;
-		}
-		for (; y0 < height; y0++) {
-			float sum = 0.0f;
+			for (int dy=-R+s0; dy<=(R-s1); dy++) {
+				sum += (*(sp++)) * (*(k++));
+			}
 			(*p) = f32_to_u8(sum);
 			p += stride;
 		}
 	}
-
-
 }
