@@ -68,8 +68,9 @@ with_trampoline(_=>{
 	const KP = inst.exports.s2c_setup(R,W,H);
 	const k = new Float32Array(mem.buffer,KP,R*2+1);
 	k[2]=1;
-	//k[1]=k[3]=0.5;
-	//k[0]=k[4]=0.25;
+	k[1]=k[3]=0.5;
+	k[0]=k[4]=0.25;
+	for (let i=0;i<k.length;i++) k[i]*=0.5;
 	console.log(k);
 	const IMP = inst.exports.heap_alloc_u8(W*H);
 	let im = new Uint8Array(mem.buffer, IMP, W*H);
