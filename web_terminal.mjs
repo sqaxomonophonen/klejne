@@ -52,10 +52,10 @@ export class WebTerminal {
 			if (rp.pack(rects)) {
 				break;
 			} else {
-				if (atlas_width_log2 < atlas_height_log2) {
-					atlas_width_log2++;
-				} else {
+				if (atlas_width_log2 > atlas_height_log2) {
 					atlas_height_log2++;
+				} else {
+					atlas_width_log2++;
 				}
 			}
 		}
