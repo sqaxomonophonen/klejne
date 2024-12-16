@@ -71,6 +71,11 @@ export class WebTerminal {
 		for (const r of rects) {
 			ctx.fillText(String.fromCodePoint(r.cp), r.x, r.y + m0.emHeightAscent);
 		}
+
+		const data = ctx.getImageData(0,0,width,height);
+		console.log(data);
+
+
 		//console.log(atlas_width_log2, atlas_height_log2, rects);
 	}
 

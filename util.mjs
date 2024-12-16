@@ -39,7 +39,9 @@ export function panic(msg) {
 }
 
 export function uncaught(error) {
-	if (error.message && error.stack) {
+	if (!error) {
+		_call_panic_handlers("NIL ERROR", "", "");
+	} else if (error.message && error.stack) {
 		_call_panic_handlers("UNCAUGHT EXCEPTION", error.message, error.stack);
 	} else {
 		_call_panic_handlers("UNCAUGHT ERROR", ""+error, "<no stack>");
