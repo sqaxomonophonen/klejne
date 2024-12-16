@@ -66,7 +66,7 @@ window.onload = () => {
 		let serial_map = {};
 		ww_gfx.onmessage = message => {
 			const data = message.data;
-			if (data === "READY") {
+			if (data.status === "READY") {
 				resolve(function(fn) {
 					return new Promise((resolve,reject) => {
 						const serial = ++serial_counter;
@@ -78,6 +78,10 @@ window.onload = () => {
 						};
 					});
 				});
+				return;
+			}
+			if (data.status === "ERROR") {
+				reject(data.error);
 				return;
 			}
 			if (data.serial) {
