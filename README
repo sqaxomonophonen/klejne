@@ -1,0 +1,31 @@
+
+== files ==
+
+index.html
+main.css
+
+run_server.mjs          dev/live web server
+
+sloc.bash               number of lines
+
+util.mjs                generally useful stuff
+rect_pack.mjs           rectangle packing; port of stb_rect_pack.h
+
+web_main.js             web app entry point / init
+web_terminal.mjs        terminal emulator
+web_tools.mjs           TODO move into webworker_graphics.js
+
+webworker_graphics.js   canvas/wasm off screen rendering
+
+acorn/*                 acornjs
+what/*                  what.wasm sources
+
+
+== naming convention ==
+ - run_*.mjs       : nodejs executables
+ - web_*.mjs       : browser-only modules
+ - web_*.js        : browser-only, no exports (".js" prevents import in nodejs)
+ - webworker_*.js  : browser-only, Worker() entry point
+ - *.mjs           : cross-platform modules
+
+
