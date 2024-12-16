@@ -17,6 +17,7 @@ if [ -z $CLANG ] ; then
 	exit 1
 fi
 echo "using clang=$CLANG"
+out="../what.wasm"
 $CLANG \
 	-O2 \
 	-Wall \
@@ -29,7 +30,7 @@ $CLANG \
 	-Wl,--import-memory \
 	-Wl,--export-dynamic \
 	-Wl,--unresolved-symbols=import-dynamic \
-	-o what.wasm what.c
+	-o $out what.c
 
 echo "Artifacts:"
-wc -c what.wasm
+wc -c $out
