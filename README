@@ -22,10 +22,10 @@ what/*                  what.wasm sources
 
 
 == naming convention ==
- - run_*.mjs       : nodejs executables
- - web_*.mjs       : browser-only modules
- - web_*.js        : browser-only, no exports (".js" prevents import in nodejs)
- - webworker_*.js  : browser-only, Worker() entry point
- - *.mjs           : cross-platform modules
+run_*.mjs               nodejs executables
+web_*.mjs               browser-only modules
+web_*.js                browser-only, no exports (".js" prevents import in nodejs)
+webworker_*.js          browser-only, Worker() entry point
+*.mjs                   cross-platform modules
 
 
