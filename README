@@ -4,28 +4,29 @@
 index.html
 main.css
 
-run_server.mjs          dev/live web server
+run_server.mjs              dev/live web server
 
-sloc.bash               number of lines
+sloc.bash                   number of lines
 
-util.mjs                generally useful stuff
-rect_pack.mjs           rectangle packing; port of stb_rect_pack.h
+util.mjs                    generally useful stuff
+rect_pack.mjs               rectangle packing; port of stb_rect_pack.h
 
-web_main.js             web app entry point / init
-web_terminal.mjs        terminal emulator
-web_tools.mjs           TODO move into webworker_graphics.js
+web_main.js                 web app entry point / init
+web_terminal.mjs            terminal emulator
+web_tools.mjs               TODO move into webworker_graphics.js
 
-webworker_graphics.js   canvas/wasm off screen rendering
+canvas/wasm-based offscreen rendering:
+webworkermain_graphics.js
+webworkerlib_graphics.mjs
 
-acorn/*                 acornjs
-what/*                  what.wasm sources
-
+acorn/*                     acornjs
+what/*                      what.wasm sources
 
 == naming convention ==
-run_*.mjs               nodejs executables
-web_*.mjs               browser-only modules
-web_*.js                browser-only, no exports (".js" prevents import in nodejs)
-webworker_*.js          browser-only, Worker() entry point
-*.mjs                   cross-platform modules
-
+run_*.mjs                   nodejs executables
+web_*.mjs                   browser-only modules
+web_*.js                    browser-only, no exports (".js" prevents import in nodejs)
+webworkermain_*.js          browser-only, Worker() entry point
+webworkerlib_*.mjs          state, rpc, etc; webworkerlib_foo.mjs should relate to webworkermain_foo.js
+*.mjs                       cross-platform modules
 

@@ -1,7 +1,6 @@
-
 import { assert, panic, uncaught, add_panic_handler } from './util.mjs';
-import { load_font } from './web_tools.mjs';
 import { WebTerminal } from './web_terminal.mjs';
+import { start_graphics_webworker, XXX_ding } from './webworkerlib_graphics.mjs';
 
 let ww_gfx;
 let wt;
@@ -60,52 +59,14 @@ window.onload = () => {
 		uncaught(event.reason);
 	};
 
-	const ww_gfx_promise = new Promise((resolve, reject) => {
-		ww_gfx = new Worker("./webworker_graphics.js", {type:"module"});
-		let serial_counter = 0;
-		let serial_map = {};
-		ww_gfx.onmessage = message => {
-			const data = message.data;
-			if (data.status === "READY") {
-				resolve(function(fn) {
-					return new Promise((resolve,reject) => {
-						const serial = ++serial_counter;
-						const args = [...arguments].slice(1);
-						ww_gfx.postMessage({fn,serial,args});
-						serial_map[serial] = {
-							resolve,reject,
-							signature: `${fn}(${JSON.stringify(args)})#${serial}`,
-						};
-					});
-				});
-				return;
-			}
-			if (data.status === "ERROR") {
-				reject(data.error);
-				return;
-			}
-			if (data.serial) {
-				const h = serial_map[data.serial];
-				if (h) {
-					delete serial_map[data.serial];
-					let {resolve,reject,signature} = h;
-					if (data.ok) {
-						resolve(data.result);
-					} else {
-						reject(`${signature} => ${data.error}`);
-					}
-					return;
-				}
-			}
-			console.warn("TODO unhandled message from worker: ", data);
-		};
-	});
-
 	//wt = new WebTerminal(document.body);
 	//wt.set_font("Iosevka-Regular.woff2", "25px");
 
-	Promise.all([ww_gfx_promise]).then(([call_ww_gfx]) => {
-		call_ww_gfx("ding",10000,42).then(result => {
+	Promise.all([
+		start_graphics_webworker(),
+	]).then((results) => {
+		console.log("READY?");
+		XXX_ding(10000,42).then(result => {
 			console.log("ding result",result);
 		});
 	});

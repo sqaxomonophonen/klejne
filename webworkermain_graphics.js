@@ -1,4 +1,3 @@
-
 const fns = {
 	ding : (a,b) => new Promise((resolve,reject) => { resolve(["dong",a+b]); }), // XXX remove me
 	make_font_atlas : () => new Promise((resolve,reject) => {
@@ -51,7 +50,7 @@ const GET = (url) => new Promise((resolve,reject) => {
 });
 
 const wasm_memory = new WebAssembly.Memory({ initial: 16 });
-const what_wasm_promise = WebAssembly.instantiateStreaming(GET("./what.wasm"), {
+const what_wasm_promise = WebAssembly.instantiateStreaming(GET("./what.wasm"), { // XXX:URLHARDCODED
 	env: {
 		memory: wasm_memory,
 		js_grow_memory: function(delta_64k_pages) {
@@ -72,4 +71,3 @@ Promise.all([what_wasm_promise]).then(([what_wasm]) => {
 }).catch(error => {
 	postMessage({status:"ERROR",error});
 });
-

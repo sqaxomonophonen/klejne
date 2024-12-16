@@ -13,7 +13,9 @@
      versioned? by hash? (suspecting it's going to be rather stable)
    - ww_gfx = new Worker("./webworker_graphics.js", {type:"module"}); - should
      this simply be inlined; made into a data-url maybe?
-   - imports - this one can probably be done with some JS compiler stuff
+   - imports - this one can probably be done with some JS compiler stuff.
+   the non-import ones should be marked with "// XXX:URLHARDCODED" to make them
+   easier to find.
 
  - trim acorn if only tokenizer is needed?
 
