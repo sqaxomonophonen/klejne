@@ -105,8 +105,8 @@ window.onload = () => {
 	//wt.set_font("Iosevka-Regular.woff2", "25px");
 
 	Promise.all([ww_gfx_promise]).then(([call_ww_gfx]) => {
-		call_ww_gfx("ding",1,2,3).then(result => {
-			console.log("dingresult",result);
+		call_ww_gfx("ding",10000,42).then(result => {
+			console.log("ding result",result);
 		});
 	});
 

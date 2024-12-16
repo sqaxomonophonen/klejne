@@ -1,12 +1,33 @@
+
+const fns = {
+	ding : (a,b) => new Promise((resolve,reject) => { resolve(["dong",a+b]); }), // XXX remove me
+	make_font_atlas : () => new Promise((resolve,reject) => {
+		// TODO
+	}),
+}
+
+
 addEventListener("message", (message) => {
 	//console.log("worker got mail", message.data);
-	const d = message.data;
-	if (d.fn) {
+	const { serial, fn, args } = message.data;
+	let ff = fns[fn];
+	if (ff) {
+		ff(...args).then(result => {
+			postMessage({
+				serial,
+				ok:true,
+				result,
+			});
+		}).catch(error => {
+			postMessage({
+				serial,
+				error,
+			});
+		});
+	} else {
 		postMessage({
-			ok:true,
-			//error: "not enough stuff",
-			serial:d.serial,
-			result: d.fn+":yesssss",
+			serial,
+			error: "no such function: " + fn,
 		});
 	}
 });
