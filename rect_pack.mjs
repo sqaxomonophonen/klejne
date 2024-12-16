@@ -1,14 +1,6 @@
 function ASSERT(p) { if (!p) throw new Error("ASSERT FAILED (in rect_pack.mjs)"); }
 const DEBUG = true; // XXX change to false at some point?
 
-export function Rect(w,h) {
-	return {
-		w:w, h:h,
-		x:0, y:0,
-		was_packed:0,
-	};
-}
-
 // JS implementation of "&" in C I guess :-)
 class GettySetty {
 	constructor(obj, field) {
@@ -26,7 +18,7 @@ class GettySetty {
 
 }
 
-export class RectPack {
+export default class RectPack {
 	constructor(width, height, num_nodes) {
 		this.nodes = [];
 		for (let i=0; i < num_nodes  ; ++i) this.nodes[i] = {x:0,y:0,next:null};

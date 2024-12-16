@@ -59,5 +59,5 @@ window.onload = () => {
 	};
 
 	wt = new WebTerminal(document.body);
-	wt.set_font("Iosevka-Regular.woff2", "20px");
+	wt.set_font("Iosevka-Regular.woff2", "25px");
 };
