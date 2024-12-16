@@ -3,6 +3,8 @@ const fns = {
 	ding : (a,b) => new Promise((resolve,reject) => { resolve(["dong",a+b]); }), // XXX remove me
 	make_font_atlas : () => new Promise((resolve,reject) => {
 		// TODO
+		// HINT: use OffscreenCanvas
+		// HINT: use self.fonts instead of document.fonts
 	}),
 }
 

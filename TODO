@@ -1,0 +1,19 @@
+
+ - web_terminal.mjs
+   - move font atlas stuff to webworker_graphics.js
+   - fix font packer
+   - scale + blur
+   - webgl2 renderer
+
+ - code editor using web_terminal.mjs
+   - color picker
+
+ - figure out what to do with source inline URLs in production builds:
+   - WebAssembly.instantiateStreaming(GET("./what.wasm"),...) - should be
+     versioned? by hash? (suspecting it's going to be rather stable)
+   - ww_gfx = new Worker("./webworker_graphics.js", {type:"module"}); - should
+     this simply be inlined; made into a data-url maybe?
+   - imports - this one can probably be done with some JS compiler stuff
+
+ - trim acorn if only tokenizer is needed?
+
