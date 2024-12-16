@@ -8,14 +8,12 @@
  - code editor using web_terminal.mjs
    - color picker
 
- - figure out what to do with source inline URLs in production builds:
-   - WebAssembly.instantiateStreaming(GET("./what.wasm"),...) - should be
-     versioned? by hash? (suspecting it's going to be rather stable)
-   - ww_gfx = new Worker("./webworker_graphics.js", {type:"module"}); - should
-     this simply be inlined; made into a data-url maybe?
-   - imports - this one can probably be done with some JS compiler stuff.
-   the non-import ones should be marked with "// XXX:URLHARDCODED" to make them
-   easier to find.
+ - figure out what to do with inlined source URLs in production builds: while I
+   assume ES6-style imports will be resolved by a compiler like Babel I'm less
+   sure about workers, wasm, etc. until a solution is found the non-import
+   cases should be marked with
+      // XXX:URLHARDCODED
+   to make them easier to find.
 
  - trim acorn if only tokenizer is needed?
 
