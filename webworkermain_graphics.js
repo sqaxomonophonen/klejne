@@ -16,23 +16,22 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 
 		const font_desc = font.size + "px " + face;
 		ctx.font = font_desc;
-		const m0 = ctx.measureText("W");
-		{
-			const m1 = ctx.measureText("I");
-			if (m1.width !== m0.width) {
-				console.warn(`font ${font.source}:${font.id} does not appear to be monospaced; using "W" metrics for all glyphs`);
-			}
-		}
-
-		// XXX FIXME: I also need to allocate for blur/scaled ones
-		// XXX width is also not stable
-		const glyph_width = m0.width;
-		const glyph_height = m0.emHeightAscent + m0.emHeightDescent;
 
 		let rects = [];
 		for (const [cp0,cp1] of font.codepoint_ranges) {
 			for (let cp=cp0; cp<=cp1; ++cp) {
-				rects.push({w:glyph_width, h:glyph_height, cp:cp, });
+				const m = ctx.measureText(String.fromCodePoint(cp));
+				let o = {
+				w : (m.actualBoundingBoxRight + m.actualBoundingBoxLeft),
+				h : (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent),
+				left : m.actualBoundingBoxLeft,
+				right : m.actualBoundingBoxRight,
+				top : m.actualBoundingBoxAscent,
+				bottom : m.actualBoundingBoxDescent,
+				baseline : m.alphabeticBaseline,
+				};
+				//console.log(o);
+				rects.push({...o,cp,m});
 			}
 		}
 
@@ -58,7 +57,7 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		ctx.fillStyle = '#fff';
 		ctx.font = font_desc;
 		for (const r of rects) {
-			ctx.fillText(String.fromCodePoint(r.cp), r.x, r.y + m0.emHeightAscent);
+			ctx.fillText(String.fromCodePoint(r.cp), r.x+r.m.actualBoundingBoxLeft, r.y+r.m.actualBoundingBoxAscent+r.m.alphabeticBaseline);
 		}
 
 		// XXX TODO
@@ -73,6 +72,8 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		}).catch(reject);
 	} else if (font.source === "face") {
 		after_face(font.id);
+	} else {
+		panic(`unhandled source ${font.source}`);
 	}
 }),
 };
