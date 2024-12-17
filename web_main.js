@@ -1,6 +1,6 @@
 import { assert, panic, uncaught, add_panic_handler } from './util.mjs';
 import { create_web_terminal } from './web_terminal.mjs';
-import { start_graphics_webworker } from './webworkerlib_graphics.mjs';
+import { start_graphics_webworker, AtlasFont } from './webworkerlib_graphics.mjs';
 
 let ww_gfx;
 let wt;
@@ -64,7 +64,8 @@ window.onload = () => {
 	]).then(_=>{
 		console.log("READY?");
 		Promise.all([
-			create_web_terminal(),
+			create_web_terminal()
+			//create_web_terminal(new AtlasFont("url", "./Iosevka-Regular.woff2", 30))
 		]).then(([terminal])=>{
 			console.log("GOT TERMINAL", terminal);
 			terminal.mount(document.body);

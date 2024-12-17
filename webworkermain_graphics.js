@@ -76,6 +76,7 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		panic(`unhandled source ${font.source}`);
 	}
 }),
+
 };
 
 addEventListener("message", (message) => {

@@ -67,7 +67,7 @@ export class AtlasFont {
 			id = "monospace";
 		}
 		if (source !== "url" && source !== "face") panic(`unhandled source ${source}`);
-		if (!codepoint_ranges) codepoint_ranges = [[0x20,0xff]];
+		if (!codepoint_ranges) codepoint_ranges = [[0x20,0x7e],[0xa0,0xff]];
 		if (!size || size<0) size = 20;
 		this.source = source;
 		this.id = id;
