@@ -1,6 +1,6 @@
 import { assert, panic, uncaught, add_panic_handler } from './util.mjs';
-import { WebTerminal } from './web_terminal.mjs';
-import { start_graphics_webworker, XXX_ding } from './webworkerlib_graphics.mjs';
+import { create_web_terminal } from './web_terminal.mjs';
+import { start_graphics_webworker } from './webworkerlib_graphics.mjs';
 
 let ww_gfx;
 let wt;
@@ -59,15 +59,15 @@ window.onload = () => {
 		uncaught(event.reason);
 	};
 
-	//wt = new WebTerminal(document.body);
-	//wt.set_font("Iosevka-Regular.woff2", "25px");
-
 	Promise.all([
 		start_graphics_webworker(),
-	]).then((results) => {
+	]).then(_=>{
 		console.log("READY?");
-		XXX_ding(10000,42).then(result => {
-			console.log("ding result",result);
+		Promise.all([
+			create_web_terminal(),
+		]).then(([terminal])=>{
+			console.log("GOT TERMINAL", terminal);
+			terminal.mount(document.body);
 		});
 	});
 
