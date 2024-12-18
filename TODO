@@ -1,7 +1,5 @@
 
  - web_terminal.mjs
-   - move font atlas stuff to webworker_graphics.js
-   - fix font packer
    - scale + blur
    - webgl2 renderer
 
