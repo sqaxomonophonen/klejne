@@ -32,34 +32,25 @@ static inline size_t strlen(const char* s)
 // a way to send a message back to JavaScript
 // /////////////////////////////////
 
+extern size_t js_print(const char* message); // implemented in JS
+
 static int message_cursor;
+static char message_buffer[1<<14];
 
-#ifdef WITH_DEBUG_PRINTF
-#define MESSAGE_CAP (1<<18)
-#else
-#define MESSAGE_CAP (1<<14)
-#endif
-static char message[MESSAGE_CAP];
-
-PLEASE_EXPORT const char* get_message(void)
+static void reset_message(void)
 {
-	return message;
-}
-
-PLEASE_EXPORT void clear_message(void)
-{
-	message[0] = 0;
+	message_buffer[0] = 0;
 	message_cursor = 0;
 }
 
 static void append_to_message(const char* string)
 {
 	const size_t n = strlen(string);
-	const size_t remaining = (sizeof(message)-1) - message_cursor;
+	const size_t remaining = (sizeof(message_buffer)-1) - message_cursor;
 	const size_t can_write = n > remaining ? remaining : n;
-	memcpy(message + message_cursor, string, can_write);
+	memcpy(message_buffer + message_cursor, string, can_write);
 	message_cursor += can_write;
-	message[message_cursor] = 0;
+	message_buffer[message_cursor] = 0;
 }
 
 #ifdef WITH_DEBUG_PRINTF
@@ -68,10 +59,12 @@ static void append_to_message(const char* string)
 #include "stb_sprintf.h"
 static void DEBUG_PRINTF(const char* fmt, ...)
 {
+	reset_message();
 	va_list ap;
 	va_start(ap, fmt);
-	message_cursor += stbsp_vsnprintf(message+message_cursor, sizeof(message)-message_cursor, fmt, ap);
+	message_cursor += stbsp_vsnprintf(message_buffer+message_cursor, sizeof(message_buffer)-message_cursor, fmt, ap);
 	va_end(ap);
+	js_print(message_buffer);
 
 }
 #else
@@ -82,13 +75,17 @@ static void DEBUG_PRINTF(const char* fmt, ...)
 // ASSERT
 // /////////////////////////////////
 
+extern size_t js_panic(const char* message); // implemented in JS
+
 NO_RETURN static void handle_failed_assertion(const char* failed_predicate, const char* location)
 {
+	reset_message();
 	append_to_message("ASSERTION FAILED {{{ ");
 	append_to_message(failed_predicate);
 	append_to_message(" }}} at ");
 	append_to_message(location);
-	__builtin_trap(); // stops and throws WebAssembly.RuntimeError
+	js_panic(message_buffer);
+	__builtin_trap();
 }
 
 #define STR2(s) #s
@@ -212,7 +209,16 @@ PLEASE_EXPORT void resize_multiple_monochrome_subbitmaps(int num, int src_w, int
 				io_ptr_pairs[i*2], stride_in_bytes,
 				io_ptr_pairs[i*2+1], stride_in_bytes);
 		}
-		stbir_resize_extended(&resize);
+		//stbir_resize_extended(&resize);
+		#if 1
+		uint8_t* p = io_ptr_pairs[i*2+1];
+		for (int y=0; y<dst_h; y++) {
+			for (int x=0; x<dst_w; x++) {
+				*(p++)=100;
+			}
+			p += (stride_in_bytes - dst_w);
+		}
+		#endif
 	}
 
 	heap_restore();

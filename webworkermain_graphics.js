@@ -1,7 +1,8 @@
-import { assert, panic } from './util.mjs';
+import { assert, panic, uncaught } from './util.mjs';
 import { load_font } from './web_tools.mjs';
 import RectPack from "./rect_pack.mjs";
 import { CCP_BOX } from './webworkerlib_graphics.mjs';
+import { get_cstr } from './wasm.mjs';
 
 let wa;
 
@@ -285,9 +286,16 @@ const GET = (url) => new Promise((resolve,reject) => {
 });
 
 const wasm_memory = new WebAssembly.Memory({ initial: 16 });
+const cstr = (ptr) => get_cstr(wasm_memory.buffer, ptr);
 const what_wasm_promise = WebAssembly.instantiateStreaming(GET("./what.wasm"), { // XXX:URLHARDCODED
 	env: {
 		memory: wasm_memory,
+		js_print: function(message_pointer) {
+			console.info("[WASM] " + cstr(message_pointer));
+		},
+		js_panic: function(message_pointer) {
+			throw new Error("[WASM PANIC] " + cstr(message_pointer));
+		},
 		js_grow_memory: function(delta_64k_pages) {
 			const before = wasm_memory.buffer.byteLength;
 			if (delta_64k_pages > 0) {

@@ -19,7 +19,12 @@ export const start_graphics_webworker = () => new Promise((resolve,reject) => {
 	let serial_counter = 0;
 	let serial_map = {};
 	worker().onerror = (error) => {
-		panic("error in webworkermain_graphics.js worker");
+		console.error("XXX a worker threw an error. i'll print it shortly but please don't get your hopes up. because at the time of writing the error contains /absolutely no information of value/; no line number; no error message (unless you consider \"error\" an error message); this is both Firefox and Chrome btw; even syntax errors, and ES6 module import errors are reported in the same unhelpful way; I remember a time when JS error handling was /this/ awful and I think it was called Internet Explorer 4. good luck finding the error! because neither me nor your browser can help! :-(");
+		console.error(error);
+		// specs say that this /could/ be an ErrorEvent? but none of these fields are defined
+		// (https://html.spec.whatwg.org/multipage/webappapis.html#errorevent)
+		//console.error([error.message, error.filename, error.lineno, error.colno, error.error]);
+		panic("unhelpful error thrown in webworkermain_graphics.js worker");
 	};
 	worker().onmessage = (message) => {
 		const data = message.data;

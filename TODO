@@ -15,3 +15,6 @@
 
  - trim acorn if only tokenizer is needed?
 
+ - "production builds"? grep the code for "Internet Explorer" to find a stupid
+   but unavoidable reason for prioritizing this :-/
+
