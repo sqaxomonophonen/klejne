@@ -17,7 +17,7 @@ export const load_font = (url) => new Promise((resolve, reject) => {
 	}
 	const face = "FontFace" + (++font_face_serial);
 	let fe = [
-		FCST_LOADING ,
+		FCST_LOADING,
 		[[resolve,reject]],
 		face,
 	];

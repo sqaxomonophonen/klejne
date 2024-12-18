@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+cd $(dirname $0)
 
 # tested with:
 #    clang-16 on debian

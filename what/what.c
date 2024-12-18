@@ -93,20 +93,35 @@ NO_RETURN static void handle_failed_assertion(const char* failed_predicate, cons
 
 #define STR2(s) #s
 #define STR(s) STR2(s)
-#define assert(p) if (!(p)) handle_failed_assertion(#p, __FILE__ ":" STR(__LINE__))
+#define assert(p) if (!(p)) { handle_failed_assertion(#p, __FILE__ ":" STR(__LINE__)); }
 
 // /////////////////////////////////
 // HEAP
 // /////////////////////////////////
 
 extern unsigned char __heap_base;
-static size_t heap_bytes_allocated;
+static size_t heap_bytes_allocated, saved_heap_bytes_allocated;
+static int heap_is_saved;
 static size_t mem_size;
 extern size_t js_grow_memory(size_t); // implemented in JS
 
 PLEASE_EXPORT void heap_reset(void)
 {
 	heap_bytes_allocated = 0;
+}
+
+PLEASE_EXPORT void heap_save(void)
+{
+	assert(!heap_is_saved && "TODO implement nested save/load, if that is what you want?");
+	saved_heap_bytes_allocated = heap_bytes_allocated;
+	heap_is_saved = 1;
+}
+
+PLEASE_EXPORT void heap_restore(void)
+{
+	assert(heap_is_saved);
+	heap_bytes_allocated = saved_heap_bytes_allocated;
+	heap_is_saved = 0;
 }
 
 static void heap_grow_64k(size_t delta_64k_pages)
@@ -138,8 +153,15 @@ PLEASE_EXPORT void* heap_alloc(int align_log2, size_t n)
 
 PLEASE_EXPORT float* heap_alloc_u8(size_t n)  { return heap_alloc(0,n); }
 PLEASE_EXPORT float* heap_alloc_f32(size_t n) { return heap_alloc(2,n); }
+PLEASE_EXPORT size_t get_ptr_size(void) { return sizeof(void*); }
+PLEASE_EXPORT void* heap_alloc_ptr(size_t n)
+{
+	_Static_assert(sizeof(void*)==4, "wasm64? be careful about Uint32Array assumptions... see also get_ptr_size()");
+	return heap_alloc(2,n);
+}
 
-#if 0
+
+#if 1
 #define STBIRDEF PLEASE_EXPORT
 #define STBIR_ASSERT(p) assert(p)
 #define STBIR_MALLOC(size,user_data)    heap_alloc(MAX_ALIGNMENT_LOG2,size)
@@ -151,6 +173,49 @@ PLEASE_EXPORT float* heap_alloc_f32(size_t n) { return heap_alloc(2,n); }
 PLEASE_EXPORT void selftest_assertion_failure(void)
 {
 	assert((4==5) && "this expression is false");
+}
+
+static int monochrome_bitmap_width, monochrome_bitmap_height;
+static void* monochrome_bitmap_pixels;
+PLEASE_EXPORT void* allocate_and_set_current_monochrome_bitmap(int width, int height)
+{
+	monochrome_bitmap_pixels = heap_alloc_u8(width*height);
+	monochrome_bitmap_width = width;
+	monochrome_bitmap_height = height;
+	return monochrome_bitmap_pixels;
+}
+
+PLEASE_EXPORT void resize_multiple_monochrome_subbitmaps(int num, int src_w, int src_h, int dst_w, int dst_h, double scale, void** io_ptr_pairs, int stride_in_bytes)
+{
+	assert(num > 0);
+	static STBIR_RESIZE resize;
+	heap_save();
+	stbir_resize_init(&resize, io_ptr_pairs[0], src_w, src_h, stride_in_bytes, io_ptr_pairs[1], dst_w, dst_h, stride_in_bytes, STBIR_1CHANNEL, STBIR_TYPE_UINT8);
+
+	// assume blackness outside of bbox; also allows bbox to
+	// stbir_set_input_subrect() to be larger than src_w/h
+	stbir_set_edgemodes(&resize, STBIR_EDGE_ZERO, STBIR_EDGE_ZERO);
+
+	// TODO?
+	#if 0
+	stbir_set_input_subrect
+	 - based on `scale` input
+	 - range is [0;1] but also beyond.. 
+	#endif
+	// stbir_set_filters // uses "mitchell" for downsampling by default
+
+	stbir_build_samplers(&resize); // redundant...? stbir_resize_extended() calls it if needed...
+	for (int i=0; i<num; ++i) {
+		if (i > 0) {
+			stbir_set_buffer_ptrs(
+				&resize,
+				io_ptr_pairs[i*2], stride_in_bytes,
+				io_ptr_pairs[i*2+1], stride_in_bytes);
+		}
+		stbir_resize_extended(&resize);
+	}
+
+	heap_restore();
 }
 
 #include "s2c.h"

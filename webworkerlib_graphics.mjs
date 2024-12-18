@@ -60,19 +60,51 @@ export const start_graphics_webworker = () => new Promise((resolve,reject) => {
 	};
 });
 
+// "custom codepoints"
+export const CCP_BOX = -1;
+export const CCP_RANGE = [CCP_BOX,CCP_BOX];
+
+export const CODEPOINT_RANGES_LATIN1 = [CCP_RANGE,[0x20,0x7e],[0xa0,0xff]];
+export const CODEPOINT_RANGES_DEFAULT = CODEPOINT_RANGES_LATIN1;
+
+export const HDR_CONFIG_DEFAULT = [
+	null,
+	{
+		scale: 0.7,
+		blur_radius: 2,
+		multiplier: 1.2,
+	},
+	{
+		scale: 0.5,
+		blur_radius: 6,
+		multiplier: 1.5,
+	},
+	{
+		scale: 0.3,
+		blur_radius: 20,
+		multiplier: 2.0,
+	},
+];
+
 export class AtlasFont {
-	constructor(source, id, size, codepoint_ranges) {
+	constructor(source, id, size, codepoint_ranges, hdr_config, try_stupid_hack_for_missing_glyph_detection) {
 		if (!source) {
 			source = "face";
 			id = "monospace";
 		}
 		if (source !== "url" && source !== "face") panic(`unhandled source ${source}`);
-		if (!codepoint_ranges) codepoint_ranges = [[0x20,0x7e],[0xa0,0xff]];
-		if (!size || size<0) size = 20;
+		if (!codepoint_ranges) codepoint_ranges = CODEPOINT_RANGES_DEFAULT;
+		// XXX convenient codepoint_ranges like [[0x20,0xff]] should
+		// only be used together with
+		// "try_stupid_hack_for_missing_glyph_detection", or not at
+		// all. (Try searching for the string to find a
+		// rant/explanation elsewhere.)
 		this.source = source;
 		this.id = id;
-		this.size = size;
+		this.size = size || 20;
 		this.codepoint_ranges = codepoint_ranges;
+		this.hdr_config = hdr_config || HDR_CONFIG_DEFAULT;
+		this.try_stupid_hack_for_missing_glyph_detection = !!try_stupid_hack_for_missing_glyph_detection;
 	}
 }
 
