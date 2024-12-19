@@ -189,6 +189,7 @@ PLEASE_EXPORT void resize_multiple_monochrome_subbitmaps(int num, int src_w, int
 	heap_save();
 	stbir_resize_init(&resize, io_ptr_pairs[0], src_w, src_h, stride_in_bytes, io_ptr_pairs[1], dst_w, dst_h, stride_in_bytes, STBIR_1CHANNEL, STBIR_TYPE_UINT8);
 
+
 	// assume blackness outside of bbox; also allows bbox to
 	// stbir_set_input_subrect() to be larger than src_w/h
 	stbir_set_edgemodes(&resize, STBIR_EDGE_ZERO, STBIR_EDGE_ZERO);
@@ -209,16 +210,7 @@ PLEASE_EXPORT void resize_multiple_monochrome_subbitmaps(int num, int src_w, int
 				io_ptr_pairs[i*2], stride_in_bytes,
 				io_ptr_pairs[i*2+1], stride_in_bytes);
 		}
-		//stbir_resize_extended(&resize);
-		#if 1
-		uint8_t* p = io_ptr_pairs[i*2+1];
-		for (int y=0; y<dst_h; y++) {
-			for (int x=0; x<dst_w; x++) {
-				*(p++)=100;
-			}
-			p += (stride_in_bytes - dst_w);
-		}
-		#endif
+		stbir_resize_extended(&resize);
 	}
 
 	heap_restore();

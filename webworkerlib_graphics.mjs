@@ -75,19 +75,19 @@ export const CODEPOINT_RANGES_DEFAULT = CODEPOINT_RANGES_LATIN1;
 export const HDR_CONFIG_DEFAULT = [
 	null,
 	{
-		scale: 0.7,
-		blur_radius: 2,
-		multiplier: 1.2,
+		scale: 0.6,
+		blur_radius: 4,
+		pre_multiplier: 1,
 	},
 	{
-		scale: 0.5,
-		blur_radius: 6,
-		multiplier: 1.5,
+		scale: 0.4,
+		blur_radius: 10,
+		pre_multiplier: 1,
 	},
 	{
-		scale: 0.3,
-		blur_radius: 20,
-		multiplier: 2.0,
+		scale: 0.2,
+		blur_radius: 32,
+		pre_multiplier: 1.2,
 	},
 ];
 

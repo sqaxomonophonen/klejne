@@ -1,4 +1,4 @@
-import { assert, panic, uncaught } from './util.mjs';
+import { assert, panic, uncaught, gaussian } from './util.mjs';
 import { load_font } from './web_tools.mjs';
 import RectPack from "./rect_pack.mjs";
 import { CCP_BOX } from './webworkerlib_graphics.mjs';
@@ -6,7 +6,7 @@ import { get_cstr } from './wasm.mjs';
 
 let wa;
 
-const api = {
+const API = {
 
 make_font_atlas : (font) => new Promise((resolve,reject) => {
 
@@ -57,6 +57,14 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			*/
 		}
 
+		const num_hdr = font.hdr_config.length;
+		let hdr_rects = [];
+		let hdr_nfo = [];
+		for (let i=0; i<num_hdr; ++i) {
+			hdr_rects.push([]);
+			hdr_nfo.push({});
+		}
+
 		const mW = ctx.measureText("W");
 
 		let cp_src_rect_map = {};
@@ -65,7 +73,6 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		for (const [cp0,cp1] of font.codepoint_ranges) {
 			for (let cp=cp0; cp<=cp1; ++cp) {
 				const m = cp < 0 ? mW : ctx.measureText(String.fromCodePoint(cp));
-				cps.push(cp);
 
 				let left = m.actualBoundingBoxLeft;
 				let right = m.actualBoundingBoxRight;
@@ -73,6 +80,9 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				let descent = m.actualBoundingBoxDescent;
 				let w = right+left;
 				let h = ascent+descent;
+				if (w === 0 || h === 0) continue;
+
+				cps.push(cp);
 
 				if (
 					font.try_stupid_hack_for_missing_glyph_detection &&
@@ -82,17 +92,26 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 					descent === m0.actualBoundingBoxDescent
 				) continue;
 
-				for (const hdr of font.hdr_config) {
-					let blurpx = null;
-					if (hdr !== null) {
+				for (let hdr_index=0; hdr_index<num_hdr; ++hdr_index) {
+					let hdr = font.hdr_config[hdr_index];
+					let render_glyph = false;
+					if (hdr === null) {
+						render_glyph = true;
+						hdr_nfo[hdr_index] = undefined;
+					} else {
 						const s = hdr.scale;
 						const r = hdr.blur_radius;
-						blurpx = Math.ceil(r*s);
+						const blurpx = Math.ceil(r*s);
 						w = Math.ceil(w*s) + 2*blurpx;
 						h = Math.ceil(h*s) + 2*blurpx;
+						let nfo = hdr_nfo[hdr_index];
+						nfo.blurpx = blurpx;
+						if (nfo.max_width  === undefined || w > nfo.max_width)  nfo.max_width  = w;
+						if (nfo.max_height === undefined || h > nfo.max_height) nfo.max_height = h;
 					}
-					const rect = { cp, hdr, left, right, ascent, descent, w, h, blurpx };
+					const rect = { cp, hdr_index, render_glyph, left, right, ascent, descent, w, h };
 					rects.push(rect);
+					hdr_rects[hdr_index].push(rect);
 					if (hdr === null) {
 						assert(cp_src_rect_map[cp] === undefined);
 						cp_src_rect_map[cp] = rect;
@@ -112,14 +131,12 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			if (rp.pack(rects)) {
 				break;
 			} else {
-				// packing failed due to lack of area; double
-				// the atlas area and try again; prefer width
-				// over height (better for debug display I
-				// suppose because displays are wider than
-				// they're tall, but I'm not sure if it's
-				// better for packing? although I suspect it
-				// may be due to glyph dimensions and/or
-				// packing direction?)
+				// RectPack was unable to pack all rects; double the atlas area
+				// and try again; prefer width over height (better for debug
+				// display I suppose because displays are wider than they're
+				// tall, but I'm not sure if it's better for packing? although
+				// I suspect it may be due to glyph dimensions and/or packing
+				// direction?)
 				if (atlas_height_log2 >= atlas_width_log2) {
 					atlas_width_log2++;
 				} else {
@@ -146,7 +163,7 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				ctx.fillRect(r.x, r.y, r.w, r.h);
 			}
 			ctx.fillStyle = '#fff';
-			if (r.hdr === null) {
+			if (r.render_glyph) {
 				if (r.cp >= 0) {
 					ctx.fillText(String.fromCodePoint(r.cp), r.x+r.left, r.y+r.ascent);
 				} else if (r.cp === CCP_BOX) {
@@ -154,7 +171,6 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				} else {
 					panic(`unhandled codepoint ${r.cp}`);
 				}
-			} else {
 			}
 		}
 
@@ -167,10 +183,10 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				const src_rect = cp_src_rect_map[cp];
 				assert(src_rect);
 				for (const dst_rect of cp_dst_rects_map[cp]) {
-					const bp = 2*dst_rect.blurpx;
+					const bp = 2*hdr_nfo[dst_rect.hdr_index].blurpx;
 					const dw = dst_rect.w - bp;
 					const dh = dst_rect.h - bp;
-					const k = src_rect.w+"x"+src_rect.h+">"+dw+"x"+dh+"s"+(dst_rect.hdr.scale.toFixed(4));
+					const k = src_rect.w+"x"+src_rect.h+">"+dw+"x"+dh+"s"+(font.hdr_config[dst_rect.hdr_index].scale.toFixed(4));
 					let ser = k2ser[k];
 					if (ser === undefined) {
 						ser = k2ser[k] = (next_ser++);
@@ -186,6 +202,7 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		const whusm = wa.instance.exports;
 		whusm.heap_reset();
 		const npix = width*height;
+		const stride = width;
 		const bp = whusm.allocate_and_set_current_monochrome_bitmap(width, height);
 		let bitmap = new Uint8Array(wasm_memory.buffer, bp, npix);
 		const pp = whusm.heap_alloc_ptr(2*max_num_rects);
@@ -201,26 +218,50 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			const [s0,d0] = rectpairs[0];
 			const num = rectpairs.length;
 
+			const P = hdr_nfo[d0.hdr_index].blurpx;
+			const P2 = 2*P;
+
 			for (let i = 0; i < num; i++) {
 				const [s,d] = rectpairs[i];
-				const xy2p = (x,y) => x+y*width;
+				const xy2p = (x,y) => bp+x+y*stride;
 				io_ptrs[i*2+0] = xy2p(s.x,s.y);
-				io_ptrs[i*2+1] = xy2p(d.x+d.blurpx,d.y+d.blurpx);
+				io_ptrs[i*2+1] = xy2p(d.x+P, d.y+P);
 			}
 
-			/*
-			// XXX fix "Error: table index is out of bounds"
 			whusm.resize_multiple_monochrome_subbitmaps(
 				num,
 				s0.w, s0.h,
-				d0.w, d0.h,
-				d0.hdr.scale,
+				d0.w-P2, d0.h-P2,
+				font.hdr_config[d0.hdr_index].scale,
 				pp,
-				width);
-			*/
+				stride);
+		}
+		for (let hdr_index=0; hdr_index<num_hdr; ++hdr_index) {
+			let hdr = font.hdr_config[hdr_index];
+			const nfo = hdr_nfo[hdr_index]
+			if (!nfo) continue;
+			whusm.heap_save();
+			const n0 = nfo.blurpx;
+			const n1 = n0*2+1;
+			const fp = whusm.s2c_setup(n0, nfo.max_width, nfo.max_height);
+			let kernel = new Float32Array(wasm_memory.buffer, fp, n1);
+			for (let i = 0; i <= n0; i++) {
+				const y = gaussian(1,((-n0+i)/n0)*3) * hdr.pre_multiplier;
+				kernel[i] = y;
+				kernel[n1-i-1] = y;
+			}
+			for (const r of hdr_rects[hdr_index]) {
+				whusm.s2c_execute(
+					bp + r.x + r.y*stride,
+					r.w,
+					r.h,
+					stride
+				);
+			}
+			whusm.heap_restore();
 		}
 
-		for (let i=0; i<npix; i++) {
+		for (let i=0; i<npix; ++i) {
 			 canvas_bitmap[i*4+0] = 255;
 			 canvas_bitmap[i*4+1] = 255;
 			 canvas_bitmap[i*4+2] = 255;
@@ -229,6 +270,7 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		createImageBitmap(canvas_image_data).then(b => {
 			resolve({b},[b]);
 		});
+
 	};
 
 	if (font.source === "url") {
@@ -247,7 +289,7 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 addEventListener("message", (message) => {
 	//console.log("worker got mail", message.data);
 	const { serial, fn, args } = message.data;
-	let ff = api[fn];
+	let ff = API[fn];
 	if (ff) {
 		ff(...args).then((result, transfer) => {
 			postMessage({
@@ -294,7 +336,9 @@ const what_wasm_promise = WebAssembly.instantiateStreaming(GET("./what.wasm"), {
 			console.info("[WASM] " + cstr(message_pointer));
 		},
 		js_panic: function(message_pointer) {
-			throw new Error("[WASM PANIC] " + cstr(message_pointer));
+			const msg = cstr(message_pointer);
+			console.error(msg);
+			throw new Error("[WASM PANIC] " + msg);
 		},
 		js_grow_memory: function(delta_64k_pages) {
 			const before = wasm_memory.buffer.byteLength;

@@ -47,3 +47,6 @@ export function uncaught(error) {
 		_call_panic_handlers("UNCAUGHT ERROR", ""+error, "<no stack>");
 	}
 }
+
+// gaussian bell curve at x for variance v and mean=0
+export const gaussian = (v,x) => Math.exp(-(x*x)/(2*v*v)) / Math.sqrt(2*Math.PI*v*v);
