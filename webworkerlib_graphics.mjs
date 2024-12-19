@@ -77,17 +77,20 @@ export const HDR_CONFIG_DEFAULT = [
 	{
 		scale: 0.6,
 		blur_radius: 4,
+		blur_variance: 1,
 		pre_multiplier: 1,
 	},
 	{
 		scale: 0.4,
 		blur_radius: 10,
+		blur_variance: 1,
 		pre_multiplier: 1,
 	},
 	{
 		scale: 0.2,
 		blur_radius: 32,
-		pre_multiplier: 1.2,
+		blur_variance: 1,
+		pre_multiplier: 1,
 	},
 ];
 

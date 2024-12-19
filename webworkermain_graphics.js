@@ -246,7 +246,10 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			const fp = whusm.s2c_setup(n0, nfo.max_width, nfo.max_height);
 			let kernel = new Float32Array(wasm_memory.buffer, fp, n1);
 			for (let i = 0; i <= n0; i++) {
-				const y = gaussian(1,((-n0+i)/n0)*3) * hdr.pre_multiplier;
+				const x = ((-n0+i)/n0)*3;
+				const y = gaussian(hdr.blur_variance, x) * hdr.pre_multiplier;
+				// XXX should the gaussian also be "windowed"? cosine,
+				// kaiser-bessel, whatever?
 				kernel[i] = y;
 				kernel[n1-i-1] = y;
 			}
