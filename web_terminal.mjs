@@ -22,7 +22,6 @@ class WebTerminal {
 		if (this.gl === null) panic("failed to get webgl2 context");
 		const ggl = this.ggl = new GGL(this.gl);
 
-		this.quads_utex = gl.createTexture();
 		this.quads_utex_rowcap_log2 = undefined;
 
 		this.atlas_tex = gl.createTexture();
@@ -64,6 +63,7 @@ class WebTerminal {
 			v_rgba = vec4(float(raw_rgba.x)*csc, float(raw_rgba.y)*csc, float(raw_rgba.z)*csc, float(raw_rgba.w)*csc);
 			vec2 xy0 = norm(unpack_uvec4_to_vec2(raw_xy0) / u_fb_dim);
 			vec2 xy1 = norm(unpack_uvec4_to_vec2(raw_xy1) / u_fb_dim);
+
 			vec2 uv0 = unpack_uvec4_to_vec2(raw_uv0) / u_tex_dim;
 			vec2 uv1 = unpack_uvec4_to_vec2(raw_uv1) / u_tex_dim;
 			vec2 xy;
@@ -180,7 +180,6 @@ class WebTerminal {
 		const req_quads = num_cols * num_rows;
 
 		{
-			gl.bindTexture(gl.TEXTURE_2D, this.quads_utex);
 			let do_tex_image = false;
 			if (this.quads_utex_rowcap_log2 === undefined) {
 				this.quads_utex_rowcap_log2 = MIN_QUADS_UTEX_ROWCAP_LOG2;
@@ -191,16 +190,17 @@ class WebTerminal {
 				do_tex_image = true;
 			}
 			if (do_tex_image) {
-				gl.texImage2D(
+				if (this.quads_utex) gl.deleteTexture(this.quads_utex);
+				this.quads_utex = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, this.quads_utex);
+				gl.texStorage2D(
 					gl.TEXTURE_2D,
-					0, // level
+					1,
 					gl.RGBA8UI,
 					QUADS_UTEX_WIDTH,
-					1 << this.quads_utex_rowcap_log2,
-					0, // border
-					gl.RGBA_INTEGER,
-					gl.UNSIGNED_BYTE,
-					null);
+					1 << this.quads_utex_rowcap_log2);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 			}
 
 			const utex_height = ((req_quads + QUADS_PER_ROW - 1) / QUADS_PER_ROW) | 0;
@@ -211,7 +211,7 @@ class WebTerminal {
 			data[4] = 100;
 			data[6] = 100;
 
-			data[8] = 0;
+			data[8]  = 0;
 			data[10] = 0;
 			data[12] = 100;
 			data[14] = 100;
@@ -221,10 +221,11 @@ class WebTerminal {
 			data[18] = 255;
 			data[19] = 255;
 
+			gl.bindTexture(gl.TEXTURE_2D, this.quads_utex);
 			gl.texSubImage2D(
 				gl.TEXTURE_2D,
 				0, // level
-				0,0, // x/y offset
+				0, 0, // x/y offset
 				QUADS_UTEX_WIDTH,
 				utex_height,
 				gl.RGBA_INTEGER,
@@ -236,16 +237,17 @@ class WebTerminal {
 		gl.clear(gl.COLOR_BUFFER_BIT);
 
 		gl.useProgram(this.program);
-		gl.uniform1i(this.u_quads, 0);
-		gl.uniform1i(this.u_tex,   1);
-		gl.uniform2f(this.u_fb_dim,  width, height);
-		gl.uniform2f(this.u_tex_dim, QUADS_UTEX_WIDTH, 1 << this.quads_utex_rowcap_log2);
 
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, this.quads_utex);
 
 		gl.activeTexture(gl.TEXTURE1);
 		gl.bindTexture(gl.TEXTURE_2D, this.atlas_tex);
+
+		gl.uniform1i(this.u_quads, 0);
+		gl.uniform1i(this.u_tex,   1);
+		gl.uniform2f(this.u_fb_dim,  width, height);
+		gl.uniform2f(this.u_tex_dim, QUADS_UTEX_WIDTH, 1 << this.quads_utex_rowcap_log2);
 
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
 
