@@ -269,9 +269,15 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		}
 
 		resolve({
-			bitmap: wasm_memory.unsafe_u8arr(bitmap_baseptr, num_pixels),
-			width,
-			height
+			atlas: {
+				bitmap: wasm_memory.unsafe_u8arr(bitmap_baseptr, num_pixels),
+				width,
+				height,
+			},
+			glyphdim: {
+				width:  Math.round(mW.actualBoundingBoxRight + mW.actualBoundingBoxLeft),
+				height: Math.round(mW.actualBoundingBoxAscent + mW.actualBoundingBoxDescent),
+			},
 		});
 	};
 

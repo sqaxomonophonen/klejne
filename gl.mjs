@@ -12,7 +12,7 @@ export class GGL {
 		gl.shaderSource(shader, source);
 		gl.compileShader(shader);
 		if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-			console.error("compile error: " + gl.getShaderInfoLog(shader));
+			console.error("compile error:\n" + gl.getShaderInfoLog(shader));
 			console.error("SHADER SOURCE:\n"+source);
 			gl.deleteShader(shader);
 			return null;
@@ -26,3 +26,10 @@ export class GGL {
 		return shader;
 	}
 }
+
+export const IS_QUADRANT = [
+	"(gl_VertexID == 0 || gl_VertexID == 3)",
+	"(gl_VertexID == 1)",
+	"(gl_VertexID == 2 || gl_VertexID == 4)",
+	"(gl_VertexID == 5)",
+];

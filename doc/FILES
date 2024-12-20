@@ -2,7 +2,7 @@
 == files ==
 
 index.html
-main.css
+style.css
 
 run_server.mjs              dev/live web server
 
@@ -10,6 +10,8 @@ sloc.bash                   number of lines
 
 util.mjs                    generally useful stuff
 rect_pack.mjs               rectangle packing; port of stb_rect_pack.h
+wasm.mjs                    WASM utilities
+gl.mjs                      WebGL utilities
 
 web_main.js                 web app entry point / init
 web_terminal.mjs            terminal emulator
@@ -20,7 +22,7 @@ webworkermain_graphics.js
 webworkerlib_graphics.mjs
 
 acorn/*                     acornjs
-what/*                      what.wasm sources
+what/*                      what.wasm sources (image resizing, bluring,...)
 
 == naming convention ==
 run_*.mjs                   nodejs executables
