@@ -1,4 +1,4 @@
-import { assert, panic, uncaught, gaussian } from './util.mjs';
+import { assert, panic, gaussian } from './util.mjs';
 import { load_font } from './web_tools.mjs';
 import RectPack from "./rect_pack.mjs";
 import { CCP_BOX } from './webworkerlib_graphics.mjs';
@@ -9,7 +9,6 @@ let wa;
 const API = {
 
 make_font_atlas : (font) => new Promise((resolve,reject) => {
-
 	const after_face = (face) => {
 		let atlas_width_log2 = 7;
 		let atlas_height_log2 = 7;
@@ -264,16 +263,7 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			whusm.heap_restore();
 		}
 
-		for (let i=0; i<npix; ++i) {
-			 canvas_bitmap[i*4+0] = 255;
-			 canvas_bitmap[i*4+1] = 255;
-			 canvas_bitmap[i*4+2] = 255;
-			 canvas_bitmap[i*4+3] = bitmap[i];
-		}
-		createImageBitmap(canvas_image_data).then(b => {
-			resolve({b},[b]);
-		});
-
+		resolve({bitmap,width,height});
 	};
 
 	if (font.source === "url") {
@@ -290,7 +280,6 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 };
 
 addEventListener("message", (message) => {
-	//console.log("worker got mail", message.data);
 	const { serial, fn, args } = message.data;
 	let ff = API[fn];
 	if (ff) {
@@ -301,9 +290,10 @@ addEventListener("message", (message) => {
 				result,
 			}, transfer);
 		}).catch(error => {
+			console.error(error);
 			postMessage({
 				serial,
-				error,
+				error: error.message + "\n" + error.stack,
 			});
 		});
 	} else {
@@ -330,7 +320,7 @@ const GET = (url) => new Promise((resolve,reject) => {
 	});
 });
 
-const wasm_memory = new WebAssembly.Memory({ initial: 16 });
+const wasm_memory = new WebAssembly.Memory({ initial: 2 });
 const cstr = (ptr) => get_cstr(wasm_memory.buffer, ptr);
 const what_wasm_promise = WebAssembly.instantiateStreaming(GET("./what.wasm"), { // XXX:URLHARDCODED
 	env: {
@@ -349,7 +339,7 @@ const what_wasm_promise = WebAssembly.instantiateStreaming(GET("./what.wasm"), {
 				wasm_memory.grow(delta_64k_pages);
 			}
 			const after = wasm_memory.buffer.byteLength;
-			console.debug("js_grow_memory(" + delta_64k_pages + " × 64k) :: " + before + " => " + after);
+			console.info("js_grow_memory(" + delta_64k_pages + " × 64k) :: " + before + " => " + after);
 			return after;
 		},
 	},

@@ -1,3 +1,5 @@
+import { assert } from "./util.mjs";
+
 let font_face_serial = 0;
 let font_cache = {};
 const FCST_LOADING = 1;
@@ -43,3 +45,20 @@ export function image_bitmap_to_image(image_bitmap) {
 	img.src = canvas.toDataURL();
 	return img;
 }
+
+export const u8arr_bitmap_to_image = (width, height, u8arr) => new Promise((resolve,reject) => {
+	assert(u8arr.length === (width*height), "mismatch between width*height and u8arr length");
+	let d = new ImageData(width, height);
+	let dd = d.data;
+	const npix = u8arr.length;
+	for (let i=0; i<npix; ++i) {
+		const v = u8arr[i];
+		dd[i*4+0] = v;
+		dd[i*4+1] = v;
+		dd[i*4+2] = v;
+		dd[i*4+3] = 255;
+	}
+	createImageBitmap(d).then(b => {
+		resolve(b);
+	});
+});

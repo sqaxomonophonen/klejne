@@ -62,7 +62,6 @@ window.onload = () => {
 	Promise.all([
 		start_graphics_webworker(),
 	]).then(_=>{
-		console.log("READY?");
 		Promise.all([
 			create_web_terminal()
 			//create_web_terminal(new AtlasFont("url", "./Iosevka-Regular.woff2", 30))
@@ -71,5 +70,4 @@ window.onload = () => {
 			terminal.mount(document.body);
 		});
 	});
-
 };
