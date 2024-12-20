@@ -2,7 +2,7 @@ import { assert, panic, gaussian } from './util.mjs';
 import { load_font } from './web_tools.mjs';
 import RectPack from "./rect_pack.mjs";
 import { CCP_BOX } from './webworkerlib_graphics.mjs';
-import { get_cstr } from './wasm.mjs';
+import { Memory } from './wasm.mjs';
 
 let wa;
 
@@ -182,9 +182,9 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				const src_rect = cp_src_rect_map[cp];
 				assert(src_rect);
 				for (const dst_rect of cp_dst_rects_map[cp]) {
-					const bp = 2*hdr_nfo[dst_rect.hdr_index].blurpx;
-					const dw = dst_rect.w - bp;
-					const dh = dst_rect.h - bp;
+					const blurpix2 = 2*hdr_nfo[dst_rect.hdr_index].blurpx;
+					const dw = dst_rect.w - blurpix2;
+					const dh = dst_rect.h - blurpix2;
 					const k = src_rect.w+"x"+src_rect.h+">"+dw+"x"+dh+"s"+(font.hdr_config[dst_rect.hdr_index].scale.toFixed(4));
 					let ser = k2ser[k];
 					if (ser === undefined) {
@@ -200,17 +200,17 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 
 		const whusm = wa.instance.exports;
 		whusm.heap_reset();
-		const npix = width*height;
+		const num_pixels = width*height;
 		const stride = width;
-		const bp = whusm.allocate_and_set_current_monochrome_bitmap(width, height);
-		let bitmap = new Uint8Array(wasm_memory.buffer, bp, npix);
-		const pp = whusm.heap_alloc_ptr(2*max_num_rects);
-		let io_ptrs = new Uint32Array(wasm_memory.buffer, pp, 2*max_num_rects);
+		const bitmap_baseptr = whusm.allocate_and_set_current_monochrome_bitmap(width, height);
+		const io_ptrs_baseptr = whusm.heap_alloc_ptr(2*max_num_rects);
 
-		const canvas_image_data = ctx.getImageData(0,0,width,height);
-		const canvas_bitmap = canvas_image_data.data;
-		for (let i=0; i<npix; i++) {
-			bitmap[i] = canvas_bitmap[i*4+3];
+		{ // copy canvas bitmap to wasm memory
+			let bitmap = wasm_memory.unsafe_u8arr(bitmap_baseptr, num_pixels);
+			const canvas_bitmap = ctx.getImageData(0,0,width,height).data;
+			for (let i=0; i<num_pixels; i++) {
+				bitmap[i] = canvas_bitmap[i*4+3];
+			}
 		}
 
 		for (const rectpairs of ser2rectpair) {
@@ -220,11 +220,14 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			const P = hdr_nfo[d0.hdr_index].blurpx;
 			const P2 = 2*P;
 
-			for (let i = 0; i < num; i++) {
-				const [s,d] = rectpairs[i];
-				const xy2p = (x,y) => bp+x+y*stride;
-				io_ptrs[i*2+0] = xy2p(s.x,s.y);
-				io_ptrs[i*2+1] = xy2p(d.x+P, d.y+P);
+			{
+				let io_ptrs = wasm_memory.unsafe_u32arr(io_ptrs_baseptr, 2*max_num_rects);
+				for (let i = 0; i < num; i++) {
+					const [s,d] = rectpairs[i];
+					const xy2p = (x,y) => bitmap_baseptr+x+y*stride;
+					io_ptrs[i*2+0] = xy2p(s.x,s.y);
+					io_ptrs[i*2+1] = xy2p(d.x+P, d.y+P);
+				}
 			}
 
 			whusm.resize_multiple_monochrome_subbitmaps(
@@ -232,7 +235,7 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				s0.w, s0.h,
 				d0.w-P2, d0.h-P2,
 				font.hdr_config[d0.hdr_index].scale,
-				pp,
+				io_ptrs_baseptr,
 				stride);
 		}
 		for (let hdr_index=0; hdr_index<num_hdr; ++hdr_index) {
@@ -243,18 +246,20 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			const n0 = nfo.blurpx;
 			const n1 = n0*2+1;
 			const fp = whusm.s2c_setup(n0, nfo.max_width, nfo.max_height);
-			let kernel = new Float32Array(wasm_memory.buffer, fp, n1);
-			for (let i = 0; i <= n0; i++) {
-				const x = ((-n0+i)/n0)*3;
-				const y = gaussian(hdr.blur_variance, x) * hdr.pre_multiplier;
-				// XXX should the gaussian also be "windowed"? cosine,
-				// kaiser-bessel, whatever?
-				kernel[i] = y;
-				kernel[n1-i-1] = y;
+			{
+				let kernel = wasm_memory.unsafe_f32arr(fp, n1);
+				for (let i = 0; i <= n0; i++) {
+					const x = ((-n0+i)/n0)*3;
+					const y = gaussian(hdr.blur_variance, x) * hdr.pre_multiplier;
+					// XXX should the gaussian also be "windowed"? cosine,
+					// kaiser-bessel, whatever?
+					kernel[i] = y;
+					kernel[n1-i-1] = y;
+				}
 			}
 			for (const r of hdr_rects[hdr_index]) {
 				whusm.s2c_execute(
-					bp + r.x + r.y*stride,
+					bitmap_baseptr + r.x + r.y*stride,
 					r.w,
 					r.h,
 					stride
@@ -263,7 +268,11 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			whusm.heap_restore();
 		}
 
-		resolve({bitmap,width,height});
+		resolve({
+			bitmap: wasm_memory.unsafe_u8arr(bitmap_baseptr, num_pixels),
+			width,
+			height
+		});
 	};
 
 	if (font.source === "url") {
@@ -320,11 +329,11 @@ const GET = (url) => new Promise((resolve,reject) => {
 	});
 });
 
-const wasm_memory = new WebAssembly.Memory({ initial: 2 });
-const cstr = (ptr) => get_cstr(wasm_memory.buffer, ptr);
+const wasm_memory = new Memory();
+const cstr = (ptr) => wasm_memory.get_cstr(ptr);
 const what_wasm_promise = WebAssembly.instantiateStreaming(GET("./what.wasm"), { // XXX:URLHARDCODED
 	env: {
-		memory: wasm_memory,
+		memory: wasm_memory.get_env_mem(),
 		js_print: function(message_pointer) {
 			console.info("[WASM] " + cstr(message_pointer));
 		},
@@ -333,15 +342,9 @@ const what_wasm_promise = WebAssembly.instantiateStreaming(GET("./what.wasm"), {
 			console.error(msg);
 			throw new Error("[WASM PANIC] " + msg);
 		},
-		js_grow_memory: function(delta_64k_pages) {
-			const before = wasm_memory.buffer.byteLength;
-			if (delta_64k_pages > 0) {
-				wasm_memory.grow(delta_64k_pages);
-			}
-			const after = wasm_memory.buffer.byteLength;
-			console.info("js_grow_memory(" + delta_64k_pages + " × 64k) :: " + before + " => " + after);
-			return after;
-		},
+		js_grow_memory: function(num_64k_pages) {
+			return wasm_memory.grow(num_64k_pages);
+		}
 	},
 });
 
