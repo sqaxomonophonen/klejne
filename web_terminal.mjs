@@ -2,6 +2,7 @@ import { make_font_atlas, AtlasFont } from "./webworkerlib_graphics.mjs";
 import { assert, panic } from "./util.mjs";
 import { image_bitmap_to_image, u8arr_bitmap_to_image } from './web_tools.mjs';
 import { GGL, IS_QUADRANT } from './gl.mjs';
+import WebGL2CanvasUnfuck from './web_webgl2canvas_unfuck.mjs';
 
 const U32S_PER_QUAD = 5
 const QUADS_UTEX_WIDTH_LOG2 = 10;
@@ -15,11 +16,12 @@ class WebTerminal {
 		this.atlas = null;
 		this.atlas_tex = null;
 		this.please_update_atlas_texture = false;
+		this.unfuck = new WebGL2CanvasUnfuck((unfuck) => this.setup_gl(unfuck));
 	}
 
-	setup_gl() {
-		const gl = this.gl = this.canvas.getContext("webgl2");
-		if (this.gl === null) panic("failed to get webgl2 context");
+	setup_gl(unfuck) {
+		const gl = this.gl = unfuck.gl;
+		this.canvas = unfuck.canvas;
 		const ggl = this.ggl = new GGL(this.gl);
 
 		this.quads_utex_rowcap_log2 = undefined;
@@ -114,36 +116,29 @@ class WebTerminal {
 		this.u_tex_dim = gl.getUniformLocation(program, "u_tex_dim");
 		this.u_tex     = gl.getUniformLocation(program, "u_tex");
 		this.program   = program;
+
+		this.please_update_atlas_texture = true;
 	}
 
 	mount(root_element) {
-		assert(this.root_element === null, "already mounted");
-		this.root_element = root_element;
-		this.canvas = document.createElement("canvas");
-		this.setup_gl();
-		this.root_element.appendChild(this.canvas);
+		this.unfuck.mount(root_element);
 		this.render();
 	}
 
 	unmount() {
-		assert(this.root_element !== null, "not mounted");
-		assert(this.canvas);
-		this.root_element.removeChild(this.canvas);
-		this.gl = null;
-		this.canvas = null;
-		this.root_element = null;
+		this.unfuck.unmount();
 	}
 
 	set_atlas_font(atlas_font) {
 		return new Promise((resolve, reject) => {
-			make_font_atlas(atlas_font).then((r) => {
-				const { atlas } = r;
-				u8arr_bitmap_to_image(atlas.width, atlas.height, atlas.bitmap).then(b => {
+			make_font_atlas(atlas_font).then((atlas) => {
+				this.atlas = atlas;
+				/*
+				u8arr_bitmap_to_image(atlas.image.width, atlas.image.height, atlas.image.data).then(b => {
 					const img = image_bitmap_to_image(b);
 					document.body.appendChild(img);
 				});
-				this.atlas = atlas;
-				this.glyphdim = r.glyphdim;
+				*/
 				this.please_update_atlas_texture = true;
 				resolve(true);
 			}).catch(reject);
@@ -152,20 +147,19 @@ class WebTerminal {
 
 	render() {
 		const gl = this.gl;
-		if (!gl) return;
 
-		if (this.please_update_atlas_texture) {
+		if (this.please_update_atlas_texture && this.atlas) {
 			gl.bindTexture(gl.TEXTURE_2D, this.atlas_tex);
 			gl.texImage2D(
 				gl.TEXTURE_2D,
 				0, // level
 				gl.LUMINANCE,
-				this.atlas.width,
-				this.atlas.height,
+				this.atlas.image.width,
+				this.atlas.image.height,
 				0, // border
 				gl.LUMINANCE,
 				gl.UNSIGNED_BYTE,
-				this.atlas.bitmap);
+				this.atlas.image.data);
 			this.please_update_atlas_texture = false;
 		}
 
@@ -173,7 +167,7 @@ class WebTerminal {
 		const width  = canvas.width  = canvas.offsetWidth;
 		const height = canvas.height = canvas.offsetHeight;
 
-		const gd = this.glyphdim;
+		const gd = this.atlas.glyphdim;
 		assert(gd && gd.width>0 && gd.height>0);
 		const num_rows = Math.floor(height / gd.height);
 		const num_cols = Math.floor(width  / gd.width);
@@ -208,12 +202,13 @@ class WebTerminal {
 
 			data[0] = 0;
 			data[2] = 0;
-			data[4] = 100;
-			data[6] = 100;
+			data[4] = 200;
+			data[6] = 150;
 
 			data[8]  = 0;
 			data[10] = 0;
-			data[12] = 100;
+			data[12] = 200;
+			data[13] = 2;
 			data[14] = 100;
 
 			data[16] = 255;
@@ -251,7 +246,7 @@ class WebTerminal {
 
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-		if (this.root_element !== null) window.requestAnimationFrame(_=>this.render());
+		if (this.unfuck.have_context) window.requestAnimationFrame(_=>this.render());
 	}
 }
 

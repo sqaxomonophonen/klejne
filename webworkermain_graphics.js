@@ -269,8 +269,8 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		}
 
 		resolve({
-			atlas: {
-				bitmap: wasm_memory.unsafe_u8arr(bitmap_baseptr, num_pixels),
+			image: {
+				data: wasm_memory.unsafe_u8arr(bitmap_baseptr, num_pixels),
 				width,
 				height,
 			},
