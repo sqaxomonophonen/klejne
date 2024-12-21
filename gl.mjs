@@ -27,9 +27,9 @@ export class GGL {
 	}
 }
 
-export const IS_QUADRANT = [
-	"(gl_VertexID == 0 || gl_VertexID == 3)",
-	"(gl_VertexID == 1)",
-	"(gl_VertexID == 2 || gl_VertexID == 4)",
-	"(gl_VertexID == 5)",
+export const MAKE_IS_QUADRANT = (varname) => [
+	`(${varname} == 0 || ${varname} == 3)`,
+	`(${varname} == 1)`,
+	`(${varname} == 2 || ${varname} == 4)`,
+	`(${varname} == 5)`,
 ];

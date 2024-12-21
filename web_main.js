@@ -8,26 +8,7 @@ window.onload = () => {
 
 	add_panic_handler((reason, msg, stack) => {
 		document.head.innerHTML = `
-		<style>
-		body {
-			background: black;
-			font-family: monospace;
-			margin: 0;
-		}
-		.guru_meditation {
-			margin: 2em;
-			padding: 1em;
-			border: 0.5em solid red;
-			color: red;
-		}
-		.msg {
-			font-size: 2em;
-		}
-		.stack {
-			margin-top: 2em;
-			line-height: 2em;
-		}
-		</style>
+		<link rel="stylesheet" type="text/css" href="style.css">
 		`;
 
 		let gs = document.getElementById("guru_meditations");
@@ -39,13 +20,13 @@ window.onload = () => {
 		gs.appendChild(g_em);
 
 		const msg_em = document.createElement("div");
-		msg_em.className = "msg";
+		msg_em.className = "guru_meditation_message";
 		msg_em.innerText = reason + (msg ? (" :: " + msg) : "");
 		g_em.appendChild(msg_em);
 
 		const stack_em = document.createElement("div");
 		stack_em.innerText = stack;
-		stack_em.className = "stack";
+		stack_em.className = "guru_medititation_stack";
 		g_em.appendChild(stack_em);
 	});
 

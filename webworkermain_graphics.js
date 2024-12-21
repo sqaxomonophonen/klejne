@@ -10,6 +10,9 @@ const API = {
 
 make_font_atlas : (font) => new Promise((resolve,reject) => {
 	const after_face = (face) => {
+		// initial atlas dimensions; grows to accommodate the size requirements
+		// (the ideal initial values are probably slightly lower than the
+		// average? idk)
 		let atlas_width_log2 = 7;
 		let atlas_height_log2 = 7;
 
@@ -23,46 +26,57 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		let rects = [];
 
 		// XXX RE: "try_stupid_hack_for_missing_glyph_detection": Like,
-		// wouldn't it be nice if in JS you had access to features
-		// already present in your browser? In general? Your browser
-		// definitely knows when a glyph is missing (mine shows a box
-		// with the codepoint in hex inside) but despite having a Font
-		// Loading API and canvas's measureText() there's no "official"
-		// (or reliable) way to detect whether a codepoint glyph exists
-		// in a font. FontFace has a "unicodeRange" field but it's
-		// always "U+0-10FFFF" (so utterly useless). But maybe writing
-		// a WOFF2 font parser isn't so hard? Lets find out... oh it's
-		// only ~1k lines of JS~ And it requires a Brotli decompressor;
-		// cool! My browser has one! Except... it's not available in
-		// JS! SEE A PATTERN HERE? I'm already pulling in a WASM image
-		// scaler! Browsers have excellent image scalers (judging by
-		// zooming out) but the only one that's available to you is the
-		// canvas drawImage() one and the downscaling quality is awful
-		// in Firefox. OK, long story short: the "stupid hack for
-		// missing glyph detection" is to assume that the missing glyph
-		// image always has the same bounding box and that no other
-		// glyph has the same bounding box. It seems to work, but I'm
-		// not going to leave it on by default because it'll remove
+		// wouldn't it be nice if in JS you had access to features already
+		// present in your browser? In general? Your browser definitely knows
+		// when a glyph is missing (mine shows a box with the codepoint in hex
+		// inside) but despite having a Font Loading API and canvas's
+		// measureText() there's no "official" (or reliable) way to detect
+		// whether a codepoint glyph exists in a font. FontFace has a
+		// "unicodeRange" field but it's always "U+0-10FFFF" (so utterly
+		// useless). But maybe writing my own WOFF2 font parser isn't so hard?
+		// Lets find out... oh it's only ~1k lines of JS and it requires a
+		// Brotli decompressor; cool! My browser has one! Except... it's not
+		// available in JS! SEE A PATTERN HERE? I'm already pulling in a WASM
+		// image scaler! Browsers have excellent image scalers (judging by
+		// zooming out) but the only one that's available to you is the canvas
+		// one (drawImage()) and downscaling gives ugly results in Firefox.
+
+		// OK, long story short: the "stupid hack for missing glyph detection"
+		// is to assume that missing glyph images share the same bounding box
+		// and that no other glyph has the same bounding box. It seems to work,
+		// but I'm not going to leave it on by default because it'll remove
 		// "random" glyphs if they happen have the same bbox.
 
 		let m0;
 		if (font.try_stupid_hack_for_missing_glyph_detection) {
+			// XXX assuming that codepoint=0 has no glyph
 			m0 = ctx.measureText(String.fromCodePoint(0));
 		}
 
 		const num_hdr = font.hdr_config.length;
 		let hdr_rects = [];
 		let hdr_nfo = [];
+		let passes = [];
 		for (let i=0; i<num_hdr; ++i) {
 			hdr_rects.push([]);
 			hdr_nfo.push({});
+			const cfg = font.hdr_config[i] || {
+				post_multiplier: 1,
+			};
+			passes.push({
+				post_multiplier: cfg.post_multiplier || 1,
+			});
 		}
 
 		const mW = ctx.measureText("W");
 
+		// go through requested codepoint ranges. extract glyph info via
+		// canvas.
+
 		let cp_src_rect_map = {};
 		let cp_dst_rects_map = {};
 		let cps = [];
+		let lookup = {};
 		for (const [cp0,cp1] of font.codepoint_ranges) {
 			for (let cp=cp0; cp<=cp1; ++cp) {
 				const m = cp < 0 ? mW : ctx.measureText(String.fromCodePoint(cp));
@@ -88,20 +102,36 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				for (let hdr_index=0; hdr_index<num_hdr; ++hdr_index) {
 					let hdr = font.hdr_config[hdr_index];
 					let render_glyph = false;
+					let inner_width,inner_height;
 					if (hdr === null) {
 						render_glyph = true;
 						hdr_nfo[hdr_index] = undefined;
+						inner_width = w;
+						inner_height = h;
 					} else {
 						const s = hdr.scale;
 						const r = hdr.blur_radius;
 						const blurpx = Math.ceil(r*s);
-						w = Math.ceil(w*s) + 2*blurpx;
-						h = Math.ceil(h*s) + 2*blurpx;
+						inner_width = Math.ceil(w*s);
+						inner_height = Math.ceil(h*s);
+						w = inner_width + 2*blurpx;
+						h = inner_height + 2*blurpx;
 						let nfo = hdr_nfo[hdr_index];
 						nfo.blurpx = blurpx;
 						if (nfo.max_width  === undefined || w > nfo.max_width)  nfo.max_width  = w;
 						if (nfo.max_height === undefined || h > nfo.max_height) nfo.max_height = h;
 					}
+					if (lookup[cp] === undefined) {
+						let a = [];
+						for (let i=0; i<num_hdr; ++i) a[i]=null;
+						lookup[cp] = a;
+					}
+					lookup[cp][hdr_index] = {
+						// XXX these are not needed, but dx/dy are? can I
+						// calculate those here?
+						//inner_width,
+						//inner_height,
+					};
 					const rect = { cp, hdr_index, render_glyph, left, right, ascent, descent, w, h };
 					rects.push(rect);
 					hdr_rects[hdr_index].push(rect);
@@ -138,8 +168,18 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			}
 		}
 
-		const width  = canvas.width  =  1<<atlas_width_log2;
-		const height = canvas.height =  1<<atlas_height_log2;
+		for (const rect of rects) {
+			const lu = lookup[rect.cp][rect.hdr_index]
+			lu.x = rect.x;
+			lu.y = rect.y;
+			lu.w = rect.w;
+			lu.h = rect.h;
+			lu.dx = 0; // XXX
+			lu.dy = 0; // XXX
+		}
+
+		const width  = canvas.width  = 1<<atlas_width_log2;
+		const height = canvas.height = 1<<atlas_height_log2;
 
 		const DEBUG = false;
 
@@ -176,9 +216,9 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				const src_rect = cp_src_rect_map[cp];
 				assert(src_rect);
 				for (const dst_rect of cp_dst_rects_map[cp]) {
-					const blurpix2 = 2*hdr_nfo[dst_rect.hdr_index].blurpx;
-					const dw = dst_rect.w - blurpix2;
-					const dh = dst_rect.h - blurpix2;
+					const blurpx2 = 2*hdr_nfo[dst_rect.hdr_index].blurpx;
+					const dw = dst_rect.w - blurpx2;
+					const dh = dst_rect.h - blurpx2;
 					const k = src_rect.w+"x"+src_rect.h+">"+dw+"x"+dh+"s"+(font.hdr_config[dst_rect.hdr_index].scale.toFixed(4));
 					let ser = k2ser[k];
 					if (ser === undefined) {
@@ -269,9 +309,11 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				height,
 			},
 			glyphdim: {
-				width:  Math.round(mW.actualBoundingBoxRight + mW.actualBoundingBoxLeft),
+				width:  Math.round(mW.actualBoundingBoxRight  + mW.actualBoundingBoxLeft),
 				height: Math.round(mW.actualBoundingBoxAscent + mW.actualBoundingBoxDescent),
 			},
+			passes,
+			lookup,
 		});
 	};
 

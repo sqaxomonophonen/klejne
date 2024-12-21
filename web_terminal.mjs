@@ -1,13 +1,14 @@
 import { make_font_atlas, AtlasFont } from "./webworkerlib_graphics.mjs";
 import { assert, panic } from "./util.mjs";
 import { image_bitmap_to_image, u8arr_bitmap_to_image } from './web_tools.mjs';
-import { GGL, IS_QUADRANT } from './gl.mjs';
+import { GGL, MAKE_IS_QUADRANT } from './gl.mjs';
 import WebGL2CanvasUnfuck from './web_webgl2canvas_unfuck.mjs';
 
 const U32S_PER_QUAD = 5
+const BYTES_PER_QUAD = 4*U32S_PER_QUAD;
 const QUADS_UTEX_WIDTH_LOG2 = 10;
 const QUADS_UTEX_WIDTH = 1 << QUADS_UTEX_WIDTH_LOG2;
-const QUADS_PER_ROW = (QUADS_UTEX_WIDTH/(4*U32S_PER_QUAD))|0;
+const QUADS_PER_ROW = (QUADS_UTEX_WIDTH/BYTES_PER_QUAD)|0;
 const MIN_QUADS_UTEX_ROWCAP_LOG2 = 7;
 
 class WebTerminal {
@@ -31,6 +32,7 @@ class WebTerminal {
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
+		const IS_QUADRANT = MAKE_IS_QUADRANT("quad_vertex_index");
 		const vertex_shader = ggl.must_compile_shader(gl.VERTEX_SHADER, `#version 300 es
 		precision highp float;
 
@@ -53,7 +55,8 @@ class WebTerminal {
 
 		void main()
 		{
-			int quad_index = gl_VertexID / 6;
+			int quad_index  = gl_VertexID / 6;
+			int quad_vertex_index = gl_VertexID % 6;
 			int ix = (quad_index % ${QUADS_PER_ROW}) * ${U32S_PER_QUAD};
 			int iy = (quad_index / ${QUADS_PER_ROW});
 			uvec4 raw_xy0  = texelFetch(u_quads, ivec2(ix+0,iy), 0);
@@ -117,6 +120,9 @@ class WebTerminal {
 		this.u_tex     = gl.getUniformLocation(program, "u_tex");
 		this.program   = program;
 
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.ONE,gl.ONE);
+
 		this.please_update_atlas_texture = true;
 	}
 
@@ -134,12 +140,10 @@ class WebTerminal {
 		return new Promise((resolve, reject) => {
 			make_font_atlas(atlas_font).then((atlas) => {
 				this.atlas = atlas;
-				/*
 				u8arr_bitmap_to_image(atlas.image.width, atlas.image.height, atlas.image.data).then(b => {
 					const img = image_bitmap_to_image(b);
 					document.body.appendChild(img);
 				});
-				*/
 				this.please_update_atlas_texture = true;
 				resolve(true);
 			}).catch(reject);
@@ -168,68 +172,89 @@ class WebTerminal {
 		const width  = canvas.width  = canvas.offsetWidth;
 		const height = canvas.height = canvas.offsetHeight;
 
-		const gd = this.atlas.glyphdim;
-		assert(gd && gd.width>0 && gd.height>0);
-		const num_rows = Math.floor(height / gd.height);
-		const num_cols = Math.floor(width  / gd.width);
-		const req_quads = num_cols * num_rows;
+		const { glyphdim, passes, lookup } = this.atlas
+		assert(glyphdim && glyphdim.width>0 && glyphdim.height>0);
+		const num_rows = Math.floor(height / glyphdim.height);
+		const num_cols = Math.floor(width  / glyphdim.width);
+		const num_cells = num_cols * num_rows;
+		const max_quads = num_cells * passes.length;
 
-		{
-			let do_tex_image = false;
-			if (this.quads_utex_rowcap_log2 === undefined) {
-				this.quads_utex_rowcap_log2 = MIN_QUADS_UTEX_ROWCAP_LOG2;
-				do_tex_image = true;
-			}
-			while (req_quads > (QUADS_PER_ROW << this.quads_utex_rowcap_log2)) {
-				this.quads_utex_rowcap_log2++;
-				do_tex_image = true;
-			}
-			if (do_tex_image) {
-				if (this.quads_utex) gl.deleteTexture(this.quads_utex);
-				this.quads_utex = gl.createTexture();
-				gl.bindTexture(gl.TEXTURE_2D, this.quads_utex);
-				gl.texStorage2D(
-					gl.TEXTURE_2D,
-					1,
-					gl.RGBA8UI,
-					QUADS_UTEX_WIDTH,
-					1 << this.quads_utex_rowcap_log2);
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-			}
-
-			const utex_height = ((req_quads + QUADS_PER_ROW - 1) / QUADS_PER_ROW) | 0;
-			let data = new Uint8Array(4*QUADS_UTEX_WIDTH*utex_height);
-
-			data[0] = 0;
-			data[2] = 0;
-			data[4] = 200;
-			data[6] = 150;
-
-			data[8]  = 0;
-			data[10] = 0;
-			data[12] = 200;
-			data[13] = 2;
-			data[14] = 100;
-
-			data[16] = 255;
-			data[17] = 128;
-			data[18] = 255;
-			data[19] = 255;
-
+		let do_tex_image = false;
+		if (this.quads_utex_rowcap_log2 === undefined) {
+			this.quads_utex_rowcap_log2 = MIN_QUADS_UTEX_ROWCAP_LOG2;
+			do_tex_image = true;
+		}
+		while (max_quads > (QUADS_PER_ROW << this.quads_utex_rowcap_log2)) {
+			this.quads_utex_rowcap_log2++;
+			do_tex_image = true;
+		}
+		if (do_tex_image) {
+			if (this.quads_utex) gl.deleteTexture(this.quads_utex);
+			this.quads_utex = gl.createTexture();
 			gl.bindTexture(gl.TEXTURE_2D, this.quads_utex);
-			gl.texSubImage2D(
+			gl.texStorage2D(
 				gl.TEXTURE_2D,
-				0, // level
-				0, 0, // x/y offset
+				1,
+				gl.RGBA8UI,
 				QUADS_UTEX_WIDTH,
-				utex_height,
-				gl.RGBA_INTEGER,
-				gl.UNSIGNED_BYTE,
-				data);
+				1 << this.quads_utex_rowcap_log2);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 		}
 
-		gl.clearColor(0,0,0.4,1);
+		const utex_height = ((max_quads + QUADS_PER_ROW - 1) / QUADS_PER_ROW) | 0;
+		let data = new Uint8Array(4*QUADS_UTEX_WIDTH*utex_height);
+
+		let di = 0;
+		const num_passes = passes.length;
+		for (let row=0; row<num_rows; ++row) {
+			for (let col=0; col<num_cols; ++col) {
+				const cp = ((row^col)&1) ? 0 : 48; // XXX read from "terminal screen buffer"
+				if (cp < 32) continue; // skip control codes
+				const lu = lookup[cp];
+				if (!lu) continue; // skip missing glyphs
+
+				for (let pass=0; pass<num_passes; ++pass) {
+					const l = lu[pass];
+					const v16s=[
+						/*xy0*/ col*glyphdim.width     , row*glyphdim.height     ,
+						/*xy1*/ (col+1)*glyphdim.width , (row+1)*glyphdim.height ,
+						/*uv0*/ l.x     , l.y     ,
+						/*uv1*/ l.x+l.w , l.y+l.h ,
+					];
+					// pack (unpack?) u16 values into u8 values
+					for (let j=0; j<8; j++) {
+						const v16 = v16s[j];
+						const lo = v16&255;
+						const hi = (v16>>8)&255;
+						data[di++] = lo;
+						data[di++] = hi;
+					}
+					data[di++] = 200;
+					data[di++] = 255;
+					data[di++] = 150;
+					data[di++] = 255;
+				}
+			}
+		}
+
+		assert((di % BYTES_PER_QUAD) === 0);
+		const num_quads = (di/BYTES_PER_QUAD)|0;
+		assert(num_quads <= max_quads);
+
+		gl.bindTexture(gl.TEXTURE_2D, this.quads_utex);
+		gl.texSubImage2D(
+			gl.TEXTURE_2D,
+			0, // level
+			0, 0, // x/y offset
+			QUADS_UTEX_WIDTH,
+			utex_height, // XXX trim if possible; no need to upload more than needed
+			gl.RGBA_INTEGER,
+			gl.UNSIGNED_BYTE,
+			data);
+
+		gl.viewport(0,0,width,height);
+		gl.clearColor(0,0,0.1,1);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 
 		gl.useProgram(this.program);
@@ -245,7 +270,7 @@ class WebTerminal {
 		gl.uniform2f(this.u_fb_dim,  width, height);
 		gl.uniform2f(this.u_tex_dim, QUADS_UTEX_WIDTH, 1 << this.quads_utex_rowcap_log2);
 
-		gl.drawArrays(gl.TRIANGLES, 0, 6);
+		gl.drawArrays(gl.TRIANGLES, 0, 6*num_quads);
 
 		if (this.unfuck.have_context) window.requestAnimationFrame(_=>this.render());
 	}

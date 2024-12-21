@@ -2,3 +2,25 @@ body {
 	background: black;
 	color: white;
 }
+
+.guru_meditation {
+	margin: 2em;
+	padding: 1em;
+	border: 0.5em solid red;
+	color: red;
+	font-family: monospace;
+}
+
+.guru_meditation_message {
+}
+
+.guru_medititation_stack {
+	margin-top: 2em;
+	line-height: 2em;
+}
+
+canvas {
+	/* XXX remove this */
+	width: 640px;
+	height: 480px;
+}
