@@ -121,8 +121,9 @@ class WebTerminal {
 	}
 
 	mount(root_element) {
-		this.unfuck.mount(root_element);
-		this.render();
+		if (this.unfuck.mount(root_element)) {
+			this.render();
+		}
 	}
 
 	unmount() {

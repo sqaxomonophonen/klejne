@@ -1,5 +1,5 @@
-// another 100 lines of code that should not have to exist; see the long
-// "innerHTML rant" below.
+// another file that should not have to exist; see the long "innerHTML rant"
+// below.
 
 import { assert, panic } from "./util.mjs";
 
@@ -28,8 +28,12 @@ export default class WebGL2CanvasUnfuck {
 		this.root_element.appendChild(this.canvas);
 		this.gl = this.canvas.getContext("webgl2");
 		if (this.gl === null) {
-			// XXX TODO make "sorry" message for this too maybe?
-			panic("failed to get webgl2 context");
+			const div = document.createElement("div");
+			div.innerHTML = `Could not create webgl2 context; maybe it's
+			unavailable, disabled or unimplemented in your browser? Check the
+			console output.`;
+			this.im_sorry(div);
+			return false;
 		}
 		this.have_context = true;
 		this.sorry = null;
@@ -110,6 +114,7 @@ export default class WebGL2CanvasUnfuck {
 		});
 
 		this.setup_fn(this);
+		return true;
 	}
 
 	unmount() {
