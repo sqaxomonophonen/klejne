@@ -48,7 +48,7 @@ class WebTerminal {
 
 		vec2 norm(vec2 v)
 		{
-			return v*2.0-1.0;
+			return v * vec2(2,-2) + vec2(-1,1);
 		}
 
 		void main()
