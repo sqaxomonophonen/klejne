@@ -49,8 +49,9 @@ export default class WebGL2CanvasUnfuck {
 			p0.innerHTML = `
 			SORRY! WE LOST A WEBGL2 CONTEXT! Also sorry if you have no idea
 			what that means! I almost don't know what it means anymore because
-			Google is using it in a new <em title="he he">context</em>!
-			It means that something went wrong with something
+			Google is using it in a new
+			<em title="he he. but in ''the olden days'' in OpenGL on desktop it typically happened when going from fullscreen to windowed mode?">context</em>!
+			It means that something went wrong with some stuff
 			that draws things! At the <em title="2024-12-21">time of
 			writing</em> Chrome likes to "lose" webgl2 contexts if it
 			thinks you have too many. That limit is currently <em>16</em>.

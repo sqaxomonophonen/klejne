@@ -48,12 +48,6 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 		let m0;
 		if (font.try_stupid_hack_for_missing_glyph_detection) {
 			m0 = ctx.measureText(String.fromCodePoint(0));
-			/*
-			console.info(m0.actualBoundingBoxLeft);
-			console.info(m0.actualBoundingBoxRight);
-			console.info(m0.actualBoundingBoxAscent);
-			console.info(m0.actualBoundingBoxDescent);
-			*/
 		}
 
 		const num_hdr = font.hdr_config.length;
