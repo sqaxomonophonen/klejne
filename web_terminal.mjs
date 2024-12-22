@@ -4,11 +4,10 @@ import { image_bitmap_to_image, u8arr_bitmap_to_image } from './web_tools.mjs';
 import { GGL, MAKE_IS_QUADRANT } from './gl.mjs';
 import WebGL2CanvasUnfuck from './web_webgl2canvas_unfuck.mjs';
 
-const U32S_PER_QUAD = 5
-const BYTES_PER_QUAD = 4*U32S_PER_QUAD;
-const QUADS_UTEX_WIDTH_LOG2 = 10;
+const WORDS_PER_QUAD = 5
+const QUADS_UTEX_WIDTH_LOG2 = 9;
 const QUADS_UTEX_WIDTH = 1 << QUADS_UTEX_WIDTH_LOG2;
-const QUADS_PER_ROW = (QUADS_UTEX_WIDTH/BYTES_PER_QUAD)|0;
+const QUADS_PER_ROW = 0|(QUADS_UTEX_WIDTH/WORDS_PER_QUAD);
 const MIN_QUADS_UTEX_ROWCAP_LOG2 = 7;
 
 class WebTerminal {
@@ -55,9 +54,9 @@ class WebTerminal {
 
 		void main()
 		{
-			int quad_index  = gl_VertexID / 6;
+			int quad_index        = gl_VertexID / 6;
 			int quad_vertex_index = gl_VertexID % 6;
-			int ix = (quad_index % ${QUADS_PER_ROW}) * ${U32S_PER_QUAD};
+			int ix = (quad_index % ${QUADS_PER_ROW}) * ${WORDS_PER_QUAD};
 			int iy = (quad_index / ${QUADS_PER_ROW});
 			uvec4 raw_xy0  = texelFetch(u_quads, ivec2(ix+0,iy), 0);
 			uvec4 raw_xy1  = texelFetch(u_quads, ivec2(ix+1,iy), 0);
@@ -206,10 +205,11 @@ class WebTerminal {
 		let data = new Uint8Array(4*QUADS_UTEX_WIDTH*utex_height);
 
 		let di = 0;
+		let num_quads = 0;
 		const num_passes = passes.length;
 		for (let row=0; row<num_rows; ++row) {
 			for (let col=0; col<num_cols; ++col) {
-				const cp = ((row^col)&1) ? 0 : 48; // XXX read from "terminal screen buffer"
+				const cp = ((row^col)&1) ? 49 : 48; // XXX read from "terminal screen buffer"
 				if (cp < 32) continue; // skip control codes
 				const lu = lookup[cp];
 				if (!lu) continue; // skip missing glyphs
@@ -217,7 +217,7 @@ class WebTerminal {
 				for (let pass=0; pass<num_passes; ++pass) {
 					const l = lu[pass];
 					const v16s=[
-						/*xy0*/ col*glyphdim.width     , row*glyphdim.height     ,
+						/*xy0*/ (col+0)*glyphdim.width , (row+0)*glyphdim.height ,
 						/*xy1*/ (col+1)*glyphdim.width , (row+1)*glyphdim.height ,
 						/*uv0*/ l.x     , l.y     ,
 						/*uv1*/ l.x+l.w , l.y+l.h ,
@@ -234,12 +234,17 @@ class WebTerminal {
 					data[di++] = 255;
 					data[di++] = 150;
 					data[di++] = 255;
+					++num_quads;
+					// we have a weird 20-byte per quad format that has to be
+					// packed into a 2D texture, so we have to skip a couple of
+					// wasted bytes in the end of each texture row (not to be
+					// confused with a row of characters)
+					if ((num_quads % QUADS_PER_ROW) === 0) {
+						di += 4*(QUADS_UTEX_WIDTH - QUADS_PER_ROW*WORDS_PER_QUAD);
+					}
 				}
 			}
 		}
-
-		assert((di % BYTES_PER_QUAD) === 0);
-		const num_quads = (di/BYTES_PER_QUAD)|0;
 		assert(num_quads <= max_quads);
 
 		gl.bindTexture(gl.TEXTURE_2D, this.quads_utex);
