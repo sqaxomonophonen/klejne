@@ -3,6 +3,7 @@ import { assert, panic } from "./util.mjs";
 import { image_bitmap_to_image, u8arr_bitmap_to_image } from './web_tools.mjs';
 import { GGL, MAKE_IS_QUADRANT } from './gl.mjs';
 import WebGL2CanvasUnfuck from './web_webgl2canvas_unfuck.mjs';
+import make_fps from './fps.mjs';
 
 const WORDS_PER_QUAD = 5
 const QUADS_UTEX_WIDTH_LOG2 = 9;
@@ -17,6 +18,7 @@ class WebTerminal {
 		this.atlas_tex = null;
 		this.please_update_atlas_texture = false;
 		this.unfuck = new WebGL2CanvasUnfuck((unfuck) => this.setup_gl(unfuck));
+		this.fps = make_fps();
 	}
 
 	setup_gl(unfuck) {
@@ -212,7 +214,9 @@ class WebTerminal {
 		let num_quads = 0;
 		const num_passes = passes.length;
 		for (let row=0; row<num_rows; ++row) {
+			const cursor_y = row*glyphdim.height;
 			for (let col=0; col<num_cols; ++col) {
+				const cursor_x = col*glyphdim.width;
 				//const cp = ((row^col)&1) ? 49 : 50; // XXX read from "terminal screen buffer"
 				const cp = 33+col + row;
 				if (cp < 32) continue; // skip control codes
@@ -221,9 +225,13 @@ class WebTerminal {
 
 				for (let pass=0; pass<num_passes; ++pass) {
 					const l = lu[pass];
+					const dx0 = 0;
+					const dy0 = 0;
+					const dx1 = l.w;
+					const dy1 = l.h;
 					const v16s=[
-						/*xy0*/ (col+0)*glyphdim.width , (row+0)*glyphdim.height ,
-						/*xy1*/ (col+1)*glyphdim.width , (row+1)*glyphdim.height ,
+						/*xy0*/ cursor_x+dx0, cursor_y+dy0,
+						/*xy1*/ cursor_x+dx1, cursor_y+dy1,
 						/*uv0*/ l.x     , l.y     ,
 						/*uv1*/ l.x+l.w , l.y+l.h ,
 					];
@@ -281,6 +289,9 @@ class WebTerminal {
 		gl.uniform2f(this.u_tex_dim, atlas_image.width, atlas_image.height);
 
 		gl.drawArrays(gl.TRIANGLES, 0, 6*num_quads);
+
+		const maybe_fps = this.fps();
+		if (maybe_fps !== null) console.info("FPS: " + maybe_fps.toFixed(1));
 
 		if (this.unfuck.have_context) window.requestAnimationFrame(_=>this.render());
 	}
