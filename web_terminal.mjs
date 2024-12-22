@@ -72,16 +72,16 @@ class WebTerminal {
 			vec2 uv1 = unpack_uvec4_to_vec2(raw_uv1) / u_tex_dim;
 			vec2 xy;
 			if (${IS_QUADRANT[0]}) {
-				xy = vec2(xy0.x,xy0.y);
+				xy   = vec2(xy0.x,xy0.y);
 				v_uv = vec2(uv0.x,uv0.y);
 			} else if (${IS_QUADRANT[1]}) {
-				xy = vec2(xy1.x,xy0.y);
+				xy   = vec2(xy1.x,xy0.y);
 				v_uv = vec2(uv1.x,uv0.y);
 			} else if (${IS_QUADRANT[2]}) {
-				xy = vec2(xy1.x,xy1.y);
+				xy   = vec2(xy1.x,xy1.y);
 				v_uv = vec2(uv1.x,uv1.y);
 			} else if (${IS_QUADRANT[3]}) {
-				xy = vec2(xy0.x,xy1.y);
+				xy   = vec2(xy0.x,xy1.y);
 				v_uv = vec2(uv0.x,uv1.y);
 			}
 			gl_Position = vec4(xy,0,1);
@@ -139,10 +139,12 @@ class WebTerminal {
 		return new Promise((resolve, reject) => {
 			make_font_atlas(atlas_font).then((atlas) => {
 				this.atlas = atlas;
+				/*
 				u8arr_bitmap_to_image(atlas.image.width, atlas.image.height, atlas.image.data).then(b => {
 					const img = image_bitmap_to_image(b);
 					document.body.appendChild(img);
 				});
+				*/
 				this.please_update_atlas_texture = true;
 				resolve(true);
 			}).catch(reject);
@@ -152,18 +154,21 @@ class WebTerminal {
 	render() {
 		const gl = this.gl;
 
+		const { glyphdim, passes, lookup } = this.atlas
+		const atlas_image = this.atlas.image;
+
 		if (this.please_update_atlas_texture && this.atlas) {
 			gl.bindTexture(gl.TEXTURE_2D, this.atlas_tex);
 			gl.texImage2D(
 				gl.TEXTURE_2D,
 				0, // level
 				gl.LUMINANCE,
-				this.atlas.image.width,
-				this.atlas.image.height,
+				atlas_image.width,
+				atlas_image.height,
 				0, // border
 				gl.LUMINANCE,
 				gl.UNSIGNED_BYTE,
-				this.atlas.image.data);
+				atlas_image.data);
 			this.please_update_atlas_texture = false;
 		}
 
@@ -171,7 +176,6 @@ class WebTerminal {
 		const width  = canvas.width  = canvas.offsetWidth;
 		const height = canvas.height = canvas.offsetHeight;
 
-		const { glyphdim, passes, lookup } = this.atlas
 		assert(glyphdim && glyphdim.width>0 && glyphdim.height>0);
 		const num_rows = Math.floor(height / glyphdim.height);
 		const num_cols = Math.floor(width  / glyphdim.width);
@@ -209,7 +213,8 @@ class WebTerminal {
 		const num_passes = passes.length;
 		for (let row=0; row<num_rows; ++row) {
 			for (let col=0; col<num_cols; ++col) {
-				const cp = ((row^col)&1) ? 49 : 48; // XXX read from "terminal screen buffer"
+				//const cp = ((row^col)&1) ? 49 : 50; // XXX read from "terminal screen buffer"
+				const cp = 33+col + row;
 				if (cp < 32) continue; // skip control codes
 				const lu = lookup[cp];
 				if (!lu) continue; // skip missing glyphs
@@ -273,7 +278,7 @@ class WebTerminal {
 		gl.uniform1i(this.u_quads, 0);
 		gl.uniform1i(this.u_tex,   1);
 		gl.uniform2f(this.u_fb_dim,  width, height);
-		gl.uniform2f(this.u_tex_dim, QUADS_UTEX_WIDTH, 1 << this.quads_utex_rowcap_log2);
+		gl.uniform2f(this.u_tex_dim, atlas_image.width, atlas_image.height);
 
 		gl.drawArrays(gl.TRIANGLES, 0, 6*num_quads);
 
