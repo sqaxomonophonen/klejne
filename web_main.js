@@ -51,14 +51,4 @@ window.onload = () => {
 			terminal.mount(document.body);
 		});
 	});
-
-	window.XXXMORE = () => {
-		Promise.all([
-			create_web_terminal()
-			//create_web_terminal(new AtlasFont("url", "./Iosevka-Regular.woff2", 30))
-		]).then(([terminal])=>{
-			console.log("GOT TERMINAL", terminal);
-			terminal.mount(document.body);
-		});
-	};
 };
