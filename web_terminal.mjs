@@ -223,12 +223,14 @@ class WebTerminal {
 			for (let col=0; col<num_cols; ++col) {
 				const cursor_x = col*glyphdim.width;
 				//const cp = ((row^col)&1) ? 49 : 50; // XXX read from "terminal screen buffer"
-				const cp = 33+col + row;
+				let cp = 33+col + row;
+				if (10 <= row && row <= 13 && 10 <= col && col <= 16) cp=0;
 				if (cp < 32) continue; // skip control codes
 				const lu = lookup[cp];
 				if (!lu) continue; // skip missing glyphs
 
 				for (let pass=0; pass<num_passes; ++pass) {
+					//if (pass!==3)continue;
 					const l = lu[pass];
 					const dx0 = l.dx;
 					const dy0 = l.dy;
