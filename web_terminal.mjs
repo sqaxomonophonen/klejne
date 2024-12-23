@@ -223,11 +223,15 @@ class WebTerminal {
 			for (let col=0; col<num_cols; ++col) {
 				const cursor_x = col*glyphdim.width;
 				//const cp = ((row^col)&1) ? 49 : 50; // XXX read from "terminal screen buffer"
-				let cp = 33+col + row;
-				if (10 <= row && row <= 13 && 10 <= col && col <= 16) cp=0;
-				if (cp < 32) continue; // skip control codes
-				const lu = lookup[cp];
-				if (!lu) continue; // skip missing glyphs
+				let cp = (33+col + row*3 + (((Date.now()/70)|0))) & 255;
+				//if (5 <= row && row <= 16 && 10 <= col && col <= 20) cp=0;
+				//if (cp < 32) continue; // skip control codes
+				let lu = lookup[cp];
+				if (!lu) lu = lookup[".".charCodeAt(0)];
+
+				//const V = 0.5+3*(Math.sin(-col*0.05 + row*0.3 + Date.now()/500) ** 2);
+				const R = ((col-30)**2 + ((row-10)*2)**2) ** 0.5;
+				const V = 0.2+2.5*(Math.sin(R*0.1 - Date.now()/500)**10);
 
 				for (let pass=0; pass<num_passes; ++pass) {
 					//if (pass!==3)continue;
@@ -253,10 +257,12 @@ class WebTerminal {
 						data[di++] = lo;
 						data[di++] = hi;
 					}
-					data[di++] = 200/3;
-					data[di++] = 255/3;
-					data[di++] = 150/3;
-					data[di++] = 255/3;
+
+					const VV=V/(pass+1);
+					data[di++] = 200*VV;
+					data[di++] = 255*VV;
+					data[di++] = 150*VV;
+					data[di++] = 255*VV;
 					++num_quads;
 					// we have a weird 20-byte per quad format that has to be
 					// packed into a 2D texture, so we have to skip a couple of
