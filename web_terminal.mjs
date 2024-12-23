@@ -44,9 +44,14 @@ class WebTerminal {
 		out vec4 v_rgba;
 		out vec2 v_uv;
 
+		float tosigned(uint v)
+		{
+			return v<(1u<<15u) ? float(v) : -(1.0+float(v-(1u<<15u)));
+		}
+
 		vec2 unpack_uvec4_to_vec2(uvec4 v)
 		{
-			return vec2(float(v.x)+256.0*float(v.y), float(v.z)+256.0*float(v.w));
+			return vec2(tosigned(v.x + 256u*v.y), tosigned(v.z + 256u*v.w));
 		}
 
 		vec2 norm(vec2 v)
@@ -225,28 +230,31 @@ class WebTerminal {
 
 				for (let pass=0; pass<num_passes; ++pass) {
 					const l = lu[pass];
-					const dx0 = 0;
-					const dy0 = 0;
-					const dx1 = l.w;
-					const dy1 = l.h;
+					const dx0 = l.dx;
+					const dy0 = l.dy;
+					const dx1 = l.dx+l.w2;
+					const dy1 = l.dy+l.h2;
 					const v16s=[
 						/*xy0*/ cursor_x+dx0, cursor_y+dy0,
 						/*xy1*/ cursor_x+dx1, cursor_y+dy1,
-						/*uv0*/ l.x     , l.y     ,
-						/*uv1*/ l.x+l.w , l.y+l.h ,
+						/*uv0*/ l.u     , l.v     ,
+						/*uv1*/ l.u+l.w , l.v+l.h ,
 					];
-					// pack (unpack?) u16 values into u8 values
+					// pack (unpack?) i16 values into u8 values
 					for (let j=0; j<8; j++) {
 						const v16 = v16s[j];
+						// subtlety: this code works because "&" and ">>"
+						// convert inputs to i32 so I don't have to deal with
+						// signedness. e.g. (-2&255)===254
 						const lo = v16&255;
 						const hi = (v16>>8)&255;
 						data[di++] = lo;
 						data[di++] = hi;
 					}
-					data[di++] = 200;
-					data[di++] = 255;
-					data[di++] = 150;
-					data[di++] = 255;
+					data[di++] = 200/3;
+					data[di++] = 255/3;
+					data[di++] = 150/3;
+					data[di++] = 255/3;
 					++num_quads;
 					// we have a weird 20-byte per quad format that has to be
 					// packed into a 2D texture, so we have to skip a couple of

@@ -168,14 +168,50 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 			}
 		}
 
+		// XXX I'm not sure what I'm doing here is for the best:
+		//  - I'm trying to determine a good height (actually line spacing) for
+		//    the font
+		//  - (mW.actualBoundingBoxAscent+mW.actualBoundingBoxDescent) isn't
+		//    tall enough (glyphs overlap)
+		//  - (mW.fontBoundingBoxAscent+mW.fontBoundingBoxDescent) seems a bit
+		//    too tall (but glyphs never overlap)
+		//  - so here I'm finding the extremes of
+		//    actualBoundingBoxAscent/Descent for a couple of chars that goes
+		//    above and below the base area... what could possibly go wrong!
+		const good_ones = ["j","l","]","|"].map(x=>ctx.measureText(x));
+		const common_ascent  = Math.max(...good_ones.map(x=>x.actualBoundingBoxAscent))
+		const common_descent = Math.max(...good_ones.map(x=>x.actualBoundingBoxDescent))
+
 		for (const rect of rects) {
-			const lu = lookup[rect.cp][rect.hdr_index]
-			lu.x = rect.x;
-			lu.y = rect.y;
+			const lu = lookup[rect.cp][rect.hdr_index];
+			lu.u = rect.x;
+			lu.v = rect.y;
 			lu.w = rect.w;
 			lu.h = rect.h;
-			lu.dx = 0; // XXX
-			lu.dy = 0; // XXX
+		}
+
+		for (const rect of rects) {
+			if (rect.hdr_index !== 0) continue;
+			const lu = lookup[rect.cp][0];
+			lu.dx = lu.dy = 0;
+			if (rect.left)   lu.dx = -rect.left;
+			if (rect.ascent) lu.dy = -rect.ascent + common_ascent;
+			lu.w2=lu.w;
+			lu.h2=lu.h;
+		}
+
+		for (const rect of rects) {
+			if (rect.hdr_index === 0) continue;
+			const lu0 = lookup[rect.cp][0];
+			const lu = lookup[rect.cp][rect.hdr_index];
+
+			const p = font.hdr_config[rect.hdr_index].blur_radius;
+			//const p = hdr_nfo[rect.hdr_index].blurpx;
+			const p2 = 2*p;
+			lu.dx = lu0.dx-p;
+			lu.dy = lu0.dy-p;
+			lu.w2 = lu0.w2+p2;
+			lu.h2 = lu0.h2+p2;
 		}
 
 		const width  = canvas.width  = 1<<atlas_width_log2;
@@ -309,8 +345,8 @@ make_font_atlas : (font) => new Promise((resolve,reject) => {
 				height,
 			},
 			glyphdim: {
-				width:  Math.round(mW.actualBoundingBoxRight  + mW.actualBoundingBoxLeft),
-				height: Math.round(mW.actualBoundingBoxAscent + mW.actualBoundingBoxDescent),
+				width:  mW.width,
+				height: Math.round(common_ascent + common_descent),
 			},
 			passes,
 			lookup,
