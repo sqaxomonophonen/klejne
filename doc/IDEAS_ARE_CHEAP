@@ -1,0 +1,146 @@
+
+
+lest we forget
+
+
+ - "coordinated universal time"; people should be able to coordinate
+   "large-scale events"; a performer can announce: "climax at t-32 bars" and
+   share a "marker" that the other performers can use to make preparations such
+   as code that responds to the timestamp delta (negative is "pre-build-up",
+   positive is "post-build-up"). bonus if the interface automatically shows the
+   diff as a countdown (or countup after arrival).
+
+   in relation to strudel/flok: afaict everybody run their own strudel
+   instance, and only ctrl+enters/code is synchronized; over enough time people
+   roughly hear the same music but it's not "coordinated" in the sense I'm
+   talking about; people may be "separated" by many beats or bars in practice
+   (and a pattern can easily have a period of many bars)
+
+
+ - video synth should be able to respond to audio by accepting patterns and
+   signals as input. the other way around is probably unwise (leads to
+   "multi-master"-like challenges which are probably not worth the trouble?)
+
+
+ - in relation to strudel:
+   - the ability to control audio parameters independently of note onsets. in
+     strudel you can only assign a parameter, say `.lpf()`, at note onset; the
+     "exceptions" are all "special cases", such as `.lpenv()`; I want inputs
+     like `.lpf()` themselves to accept patterns that aren't locked to note
+     events.
+   - real control over audio graph (hopefully without making "preset composing"
+     (like `s("piano")`) any harder)
+
+
+ - in relation to flok:
+   - no globally shared screen layout; instead give people strong "spectator
+     tools" (also opening the door for spectator-only / video synth only /
+     youtube-render modes)
+   - push towards "smaller independently edited islands"; on the surface flok
+     is a "collaboratively edited environment" but people already tend to
+     "inhabit their own island" most of the time. having too many cursors in
+     the same place takes away "the choice of when to press ctrl+enter";
+     ctrl+enter may be delayed because of other people's syntax errors due to
+     edits-in-progress, or code may be prematurely ctrl+entered before you're
+     ready. it also raises deep and complicated questions about undo/redo (can
+     /I/ undo /your/ stuff? what if there's a "merge conflict"?). just because
+     "multiplayer editing" kinda works in google docs doesn't mean it
+     automatically works for code: it is a lot stricter and unforgiving than a
+     human reader. I think having each section corresponding to a "$:" be its
+     own "island" might be a good middle ground.
+   - support for staged/suggested/queued edits? I don't want to prevent people
+     from working very closely together, almost stepping on each other's toes,
+     but instead of ctrl+entering something on somebody else's island, maybe
+     you could add a "suggested patch" that the "island custodian" can see and
+     then ctrl+enter at their own convenience?
+   - solidarity tools: the ability to see other people's CPU load? it's nice to
+     get some automatic feedback because complaining is hard. maybe things like
+     FPS, idle time and asset sync status are also interesting. by asset sync I
+     mean: you won't hear s("piano") until the piano samples have been
+     downloaded; the "asset sync status" would reveal if people are currently
+     downloading data (+an ETA maybe?), or are up-to-date.
+   - parent/shared code vs leaf code; parent code is where you can add bpm,
+     shared chord progressions, timestamp markers, shared data and functions,
+     but it's probably not allowed to add actual patterns and music here. leaf
+     code is where music is written, but leafs never act as dependencies for
+     other code. but: video synths may be an exception. also: it might be a
+     good idea to allow performers to quickly "steal" code snippets from others
+     (a quicker and less intrusive alternative to moving the code to a "parent
+     code island"). also it's a good question what happens when parent code is
+     updated? maybe two modes are both useful: one where your leaf code is
+     automatically updated when the parent dependencies are updated (but only
+     using the latest "committed" / ctrl+entered code), and another mode where
+     you're notified of pending changes, but can accept them when you're ready.
+
+
+ - I might like the idea of "prefix strings", like `s(p"hh*4")` instead of
+   `s("hh*4")`.
+   - done with a "preprocessor" that looks at the JS token stream (from acornjs
+     probably), and when it finds a string prefixed by a letter it converts it
+     into a proper "pattern object".
+   - it would allow for different ways of defining patterns. a step-sequencer
+     pattern could be something like:
+       s"X..x..x.X..x..x."
+   - it could be a stdlib/userspace thing; you could define new ad-hoc pattern
+     parsers (the code probably comes before even "parent code" though, because
+     "parent code" can still contain shared patterns?)
+   - i'm conflicted about "naked strings": should s("hh") still work? one
+     option is "no"; another option is "yes, but you get a warning and no
+     flashing/highlighting", a third option is "yes, it's equivalent to a
+     p-prefixed string" (so s("hh") and s(p"hh") are equivalent). one problem
+     is that "foo"+"bar" doesn't give you "foobar" in strudel, but 'foo'+'bar'
+     does (but isn't a pattern). prefixes may help you realize that "something
+     funny is going on"? would you expect p"foo" + p"bar" to become p"foobar"?
+     on the other hand, sometimes a bit of weirdness and inconsistency can make
+     things easier to use with time. also: JS doesn't have operator
+     overloading, so it's not possible to make p"foo"+p"bar"==p"foobar" work.
+
+
+ - previews / pre-hear / staging. the ability to try something locally before
+   entering it into the main mix. a counter-argument may be that you prefer the
+   chaos/directness/accidents, but... personally I can't help ofte using
+   `.gain(0.05)` to "tiptoe around" before raising the gain when I start liking
+   what I hear. I think it helps build confidence in some people.
+
+
+ - i'd like to explore the use of colors as an additional "dimension" in the
+   code/text editor. so in strudel terms:
+     s("<hh hh hh hh>*16")
+   would play 16th note hihats. But if you could give the "hh"'s different
+   colors you could also write code that maps it to some parameter, or reacts
+   to it, like "sometimes don't play the red notes".
+
+
+ - must be ready for live settings, big venues, PA systems:
+   - must be a reliable and rock solid tool
+   - must be possible to "attach" a "multi-output audio server slave" running
+     in nodejs; make your sound engineer happy (and by extension your audience)
+     by providing individual outputs instead of one "stereo output" (browsers
+     seem hardwired to 2ch output?  also, browsers may spend many cycles on
+     UI/video synth, which makes the audio output less reliable)
+   - a "video server slave" is similarly interesting (although this would
+     probably just be a browser in spectator mode unless webgl is a nodejs
+     thing?)
+   - tap-in and fine tempo control given to the "conductor", allowing
+     synchronizing to a live band? (instead of the common approach of people
+     following a "click track").
+   - export patterns and signals as: OSC, MIDI, DMX512,...
+
+
+ - journal "file"?
+   - a recording of a performance as a timestamped series of user interactions
+   - multiple uses:
+     - software reliability is strengthened by reproducibility; a journal can
+       help reproduce the steps that led to a problem
+     - better video export of performances because you can act as a spectator
+       after the fact.
+     - "better than video export"; get up'n'close with performers; copy-paste
+       their stuff; edit it; great for learning/studies
+     - experimentally speaking, a journal file of diffs can enable "time
+       travel", which could act as an alternative to undo/redo, which is
+       already problematic in its traditional sense in a collaborative editor.
+       things like: griefer protection in public rooms, "oops I want to
+       reintroduce the pattern I deleted 5 minutes ago as a leitmotif" (rewind,
+       copy what you need, return to present time)
+     - maybe it even makes state distribution easier because it corresponds to
+       "tailing the journal".
