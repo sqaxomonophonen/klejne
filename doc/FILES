@@ -16,6 +16,7 @@ gl.mjs                      WebGL utilities
 web_main.js                 web app entry point / init
 web_terminal.mjs            terminal emulator
 web_tools.mjs               TODO move into webworker_graphics.js
+web_webgl2canvas_unfuck.mjs undoing damage caused by Chrome
 
 canvas/wasm-based offscreen rendering:
 webworkermain_graphics.js

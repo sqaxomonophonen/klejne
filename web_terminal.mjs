@@ -1,9 +1,8 @@
 import { make_font_atlas, AtlasFont } from "./webworkerlib_graphics.mjs";
-import { assert, panic } from "./util.mjs";
+import { assert, panic, make_fps_counter } from "./util.mjs";
 import { image_bitmap_to_image, u8arr_bitmap_to_image } from './web_tools.mjs';
 import { GGL, MAKE_IS_QUADRANT } from './gl.mjs';
 import WebGL2CanvasUnfuck from './web_webgl2canvas_unfuck.mjs';
-import make_fps from './fps.mjs';
 
 const WORDS_PER_QUAD = 5
 const QUADS_UTEX_WIDTH_LOG2 = 9;
@@ -18,7 +17,7 @@ class WebTerminal {
 		this.atlas_tex = null;
 		this.please_update_atlas_texture = false;
 		this.unfuck = new WebGL2CanvasUnfuck((unfuck) => this.setup_gl(unfuck));
-		this.fps = make_fps();
+		this.fps_counter = make_fps_counter();
 	}
 
 	setup_gl(unfuck) {
@@ -306,7 +305,7 @@ class WebTerminal {
 
 		gl.drawArrays(gl.TRIANGLES, 0, 6*num_quads);
 
-		const maybe_fps = this.fps();
+		const maybe_fps = this.fps_counter();
 		if (maybe_fps !== null) console.info("FPS: " + maybe_fps.toFixed(1));
 
 		if (this.unfuck.have_context) window.requestAnimationFrame(_=>this.render());

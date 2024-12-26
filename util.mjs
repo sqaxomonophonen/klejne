@@ -50,3 +50,24 @@ export function uncaught(error) {
 
 // gaussian bell curve at x for variance v and mean=0
 export const gaussian = (v,x) => Math.exp(-(x*x)/(2*v*v)) / Math.sqrt(2*Math.PI*v*v);
+
+// constructor returns a function that you must call every frame; every 1000
+// milliseconds (overridable default) it returns the current FPS (frames per
+// second), and returns null the rest of the time.
+export const make_fps_counter = (every_milliseconds) => {
+	if (every_milliseconds === undefined) every_milliseconds = 1000;
+	let t0 = null;
+	let counter = 0;
+	return () => {
+		if (t0 === null) t0 = Date.now();
+		counter++;
+		const dt = Date.now() - t0;
+		if (dt >= every_milliseconds) {
+			const fps = (counter*dt*(1000/every_milliseconds)) / every_milliseconds;
+			counter = 0;
+			t0 = Date.now();
+			return fps;
+		}
+		return null;
+	};
+}

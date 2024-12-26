@@ -8,13 +8,13 @@ lest we forget
    share a "marker" that the other performers can use to make preparations such
    as code that responds to the timestamp delta (negative is "pre-build-up",
    positive is "post-build-up"). bonus if the interface automatically shows the
-   diff as a countdown (or countup after arrival).
+   diff as a countdown (or "countup" after arrival).
 
-   in relation to strudel/flok: afaict everybody run their own strudel
-   instance, and only ctrl+enters/code is synchronized; over enough time people
-   roughly hear the same music but it's not "coordinated" in the sense I'm
-   talking about; people may be "separated" by many beats or bars in practice
-   (and a pattern can easily have a period of many bars)
+   in relation to strudel/flok: everybody run their own strudel instance, and
+   only ctrl+enters/code are distributed; over enough time people roughly hear
+   the same music but it's not "coordinated" in the sense I'm talking about;
+   people may be "separated" by many beats or bars in practice, and patterns
+   can easily have a periods of many bars.
 
 
  - video synth should be able to respond to audio by accepting patterns and
@@ -144,3 +144,22 @@ lest we forget
        copy what you need, return to present time)
      - maybe it even makes state distribution easier because it corresponds to
        "tailing the journal".
+
+
+ - solid core + fluid stdlib design? (linux kernel/userspace inspired?). the
+   idea is to...
+   - preserve validity of old journal files..
+   - preserve validity of weird stdlib hacks you did during a performance...
+   - allow the fluidity of the "stdlib"; frequent changes, ad-hoc experiments,
+	 etc
+   would entail:
+   - storing stdlib and stdlib edits in journal files
+   - "we never break userspace" philosophy in the core/kernel (motto stolen
+	 from Linux, but it applies?)
+   also nice:
+   - "self documenting" stdlib? you can probably go directly to source in the
+	 app? maybe slightly inspired by golang; you have generated-from-source
+	 docs via doc-comments, and links back to the source. also means the
+	 documentation could be generated on the fly inside the program.
+
+
