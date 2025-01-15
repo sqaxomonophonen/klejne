@@ -1,12 +1,12 @@
 const DEFAULT_TOKENIZER_SETUP = {
     mix                : "::",
     directive          : ":",
-    variable_sigil     : "$",
+    variable_sigil     : ["$","%","@"],
     macro_sigil        : "*",
     state_tag          : "&",
-    string             : ['"', "'", "`", ["«","»"], ["»","«"]],
-    javascript_string  : "#", // you have no string escapes; pick a character you don't use in JS
-    parenthesis        : [["(",")"], ["[","]"], ["{","}"], ["<",">"],["‹","›"]],
+    string             : ['"', "'", ["«","»"], ["»","«"]],
+    javascript_string  : ["#", "`"], // you have no string escapes; pick a character you don't use in JS
+    parenthesis        : [["(",")"], ["[","]"], ["{","}"], ["<",">"]],
     chain              : "..",
     assignment         : "=",
     number_decimal     : ".",
@@ -18,10 +18,11 @@ const DEFAULT_TOKENIZER_SETUP = {
 
 const DEFAULT_KEYWORDS = {
     scope : [ "my", "our" ], // oh hi perl
+    verb  : "verb",
     macro : "macro",
     send  : "send",
     bpm   : "bpm",
-};
+}
 
 function ASSERT(p,msg) { if (!p) throw new Error("ASSERTION FAILED" + (msg ? (": "+msg) : "")); }
 function ASSERT_SAME_REPR(v0,v1,msg) { const j0=JSON.stringify(v0),j1=JSON.stringify(v1); ASSERT(j0===j1, `${j0} !== ${j1}` + (msg ? (" :: "+msg) : "")); }
@@ -82,7 +83,7 @@ class FatString {
         for (let i=0; i<n; ++i) if (this.codepoints[index+i] !== codepoints[i]) return false;
         return true;
     }
-    
+
     to_string() {
         // XXX I wonder what is the best way of converting a Uint32Array of
         // codepoints to a string? TextDecoder doesn't support UTF-32, and
@@ -206,7 +207,6 @@ const make_tokenizer_maker = (_=>{
                 });
                 let get_codepoint = () => fat_string.codepoint_at(cursor);
 
-                
                 { // try matching parenthesis
                     const def = setup_codepoints.parenthesis;
                     let p = match_codepoints(def);
@@ -260,6 +260,7 @@ const make_tokenizer_maker = (_=>{
                 // this is because 0-9 are identifier chars (in the default setup).
 
                 for (;;) { // try matching number
+                    // FIXME make proper number parser?
                     const cp = get_codepoint();
                     if (cursor === cursor0 && cp === minus_sign[0]) { ++cursor; continue; }
                     if (digit_range[0] <= cp && cp <= digit_range[1])  { ++cursor; continue; }
@@ -268,7 +269,7 @@ const make_tokenizer_maker = (_=>{
                     break;
                 }
 
-                let sigil = null;
+                let sigil=null, namespace=0;
                 for (const name of sigils_arr) { // try matching sigils
                     const def = setup_codepoints[name];
                     let p = match_codepoints(def);
@@ -276,6 +277,7 @@ const make_tokenizer_maker = (_=>{
                         cursor += lookup(def, p).length;
                         ASSERT(sigil===null);
                         sigil = name;
+                        namespace = p.length===1?p[0]:0;
                         skip_whitespace(); // "@foo" and "@ foo" are the same
                     }
                 }
@@ -297,7 +299,7 @@ const make_tokenizer_maker = (_=>{
                         break;
                     } else if (cursor > cursor0) {
                         const identifier = fat_string.substring(idcursor0, cursor).to_string();
-                        return { type:"identifier", sigil, identifier, ...token_rest() };
+                        return { type:"identifier", sigil, namespace, identifier, ...token_rest() };
                     } else {
                         throw new Error("unreachable");
                     }
@@ -312,7 +314,8 @@ const make_tokenizer_maker = (_=>{
 
 
 //const T = make_tokenizer_maker()(new FatString(string_to_codepoints("=foo 42 .. bar ({ # 3*3 # } xxx) .. baz \"bd*4\" 'sd*2' «hh*16» »cb(5,16)« 69 -- ignore this comment!@#$%^&*()--..")));
-const T = make_tokenizer_maker()(new FatString(string_to_codepoints("foo < $bar > *quux ‹ foo ›    :: : foo @@foo")));
+//const T = make_tokenizer_maker()(new FatString(string_to_codepoints("foo < $bar > *quux ‹ foo ›    :: : foo @@foo")));
+const T = make_tokenizer_maker()(new FatString(string_to_codepoints("$foo @foo %foo *foo `ding dong`")));
 for (;;) {
     //let [t,e] = T();
     //if (e) throw e;
