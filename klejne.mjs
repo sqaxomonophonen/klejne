@@ -1,27 +1,25 @@
 const DEFAULT_TOKENIZER_SETUP = {
     mix                : "::",
     directive          : ":",
-    variable_sigil     : ["$","%","@"],
-    macro_sigil        : "*",
+    variable_sigil     : ["$","%","@","*"],
     state_tag          : "&",
     string             : ['"', "'", ["«","»"], ["»","«"]],
     javascript_string  : ["#", "`"], // you have no string escapes; pick a character you don't use in JS
     parenthesis        : [["(",")"], ["[","]"], ["{","}"], ["<",">"]],
     chain              : "..",
-    assignment         : "=",
+    definition         : "=",
     number_decimal     : ".",
-    identifier_chars   : ["az","AZ","09","_","?","!",","],
+    named_argument     : "!",
+    identifier_chars   : ["az","AZ","09","_","?"],
     comment            : ["--", "//", ";"],
     whitespace         : " \t",
     newline            : "\n",
 }
 
 const DEFAULT_KEYWORDS = {
-    scope : [ "my", "our" ], // oh hi perl
-    verb  : "verb",
-    macro : "macro",
-    send  : "send",
-    bpm   : "bpm",
+    scopes : [ "my", "our" ], // oh hi perl
+    send   : "send",
+    bpm    : "bpm",
 }
 
 function ASSERT(p,msg) { if (!p) throw new Error("ASSERTION FAILED" + (msg ? (": "+msg) : "")); }
@@ -101,8 +99,8 @@ class FatString {
 //                 tokenizer_maker(fat string) => tokenizer
 //                                 tokenizer() => next token OR null
 const make_tokenizer_maker = (_=>{
-    const punctuation_arr = ["mix","chain","directive","assignment"];
-    const sigils_arr      = ["variable_sigil","macro_sigil"];
+    const punctuation_arr = ["mix","chain","directive","definition","named_argument"];
+    const sigils_arr      = ["variable_sigil"];
     const digit_range = string_to_codepoints("09");
     const minus_sign  = string_to_codepoints("-");
 
@@ -312,14 +310,50 @@ const make_tokenizer_maker = (_=>{
     };
 })();
 
+const S=[
+`
+    :: send room = freeverb .. delay 0.1
+    :: s "bd*4" .. room 1
+`,`
+    : $foo = 42
+    :$bar = 69
+    :: debug $foo $bar
+`,`
+    : my $foo = 42
+    : our $bar = 69
+    :: debug $foo $bar
+`,`
+    : $foo , $bar = 42 , 69
+    :: debug a!$foo b!$bar -- named args
+`,`
+    :: s ( cat "bd" "*4" ) .. room 1 -- nested calls?
+`,`
+    :: #x=>x.s("bd*4")# .. room 1 -- javascript
+`,`
+    : my $f = #x=>x.s("bd*4")#
+    :: $f .. room 1
+`,`
+    -- signal splitting
+    : my $pattern = "bd*4"
+    :: my $sig = s $pattern -- same as 's "bd*4"'
+    :: $sig..dist 2..hpf 2000..pan 5
+    :: $sig..pan -5
+`,`
+    :bpm=120
+`,`
+    : our bpm = 120 -- also valid
+    -- : my bpm = 120 -- "my bpm" would fail?
+`
+]
 
-//const T = make_tokenizer_maker()(new FatString(string_to_codepoints("=foo 42 .. bar ({ # 3*3 # } xxx) .. baz \"bd*4\" 'sd*2' «hh*16» »cb(5,16)« 69 -- ignore this comment!@#$%^&*()--..")));
-//const T = make_tokenizer_maker()(new FatString(string_to_codepoints("foo < $bar > *quux ‹ foo ›    :: : foo @@foo")));
-const T = make_tokenizer_maker()(new FatString(string_to_codepoints("$foo @foo %foo *foo `ding dong`")));
-for (;;) {
-    //let [t,e] = T();
-    //if (e) throw e;
-    let t = T();
-    if (!t) break;
-    console.log("token", t);
+for (const s of S) {
+    console.log("-----");
+    const T = make_tokenizer_maker()(new FatString(string_to_codepoints(s)));
+    for (;;) {
+        //let [t,e] = T();
+        //if (e) throw e;
+        let t = T();
+        if (!t) break;
+        console.log("token", t);
+    }
 }
